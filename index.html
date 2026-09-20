@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>BHV Roden Leeromgeving</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ INLOGGEN ============ -->
+<div id="scherm-login">
+  <div class="wrap">
+    <div class="auth">
+      <div class="auth-foto">
+        <img src="img/blussen-vrouw.jpg" alt="Cursist blust een vuur onder begeleiding van een instructeur">
+        <span class="waas"></span>
+        <div class="bij">
+          <h3>Verzorgd door<br>BHV Roden</h3>
+          <p>Erkend opleider voor het NIBHV. Na de e-learning volgt het praktijkgedeelte.</p>
+        </div>
+      </div>
+      <form class="auth-form" id="login-form" autocomplete="on">
+        <img class="logo" src="img/logo-bhvroden.jpg" alt="BHV Roden">
+        <h2>Inloggen</h2>
+        <p class="lead">Log in met het e-mailadres waarop je de uitnodiging hebt ontvangen.</p>
+
+        <div class="veld">
+          <label for="mail">E-mailadres</label>
+          <input id="mail" name="username" type="email" autocomplete="username" required placeholder="naam@bedrijf.nl">
+        </div>
+        <div class="veld">
+          <label for="pw">Wachtwoord</label>
+          <input id="pw" name="password" type="password" autocomplete="current-password" required>
+        </div>
+
+        <div class="fout" id="login-fout" hidden></div>
+
+        <button type="submit" class="knop" id="login-knop">Inloggen</button>
+        <p class="lead" style="font-size:13px">Wachtwoord vergeten? Neem contact op via info@bhvroden.nl.</p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ NA HET INLOGGEN ============ -->
+<div id="scherm-app" hidden>
+  <header class="balk">
+    <img src="img/logo-bhvroden.jpg" alt="BHV Roden">
+    <span class="naam">BHV Roden<span>Leeromgeving</span></span>
+    <span class="rechts">
+      <span class="wie" id="wie"></span>
+      <button type="button" class="knop grijs klein" id="uitloggen">Uitloggen</button>
+    </span>
+  </header>
+
+  <div class="wrap">
+    <div class="kop">
+      <h1>Systeemcontrole <em>geslaagd</em></h1>
+      <p id="kop-tekst">Je bent ingelogd op de echte database. Hieronder staat wat het systeem heeft gevonden.</p>
+    </div>
+
+    <div class="paneel">
+      <div class="paneel-kop"><h2>Jouw account</h2></div>
+      <div class="paneel-body" id="account"><div class="laden"><span class="tol"></span>Bezig met ophalen</div></div>
+    </div>
+
+    <div class="paneel">
+      <div class="paneel-kop">
+        <h2>Wat er in de database staat</h2>
+        <button type="button" class="knop grijs klein" id="opnieuw">Opnieuw controleren</button>
+      </div>
+      <div class="paneel-body" id="inhoud"><div class="laden"><span class="tol"></span>Bezig met ophalen</div></div>
+    </div>
+
+    <div id="uitslag"></div>
+
+    <div class="slot">
+      <p><strong>Wat dit betekent</strong></p>
+      <p>Deze pagina praat rechtstreeks met jouw Supabase. Staat alles op groen, dan werken de database, de toegangsregels en de cursusinhoud zoals bedoeld en kan ik de echte leeromgeving erbovenop bouwen.</p>
+      <p>Staat er iets op rood, dan zie je erbij welk SQL-bestand nog gedraaid moet worden.</p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>

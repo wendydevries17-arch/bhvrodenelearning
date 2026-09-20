@@ -1,0 +1,106 @@
+:root{
+  --ground:#F4F4F2;--surface:#FFFFFF;--surface-2:#EDEDEA;
+  --ink:#1C1C1C;--ink-2:#3E3E3E;--muted:#6B6B66;--line:#DCDCD8;--line-2:#C4C4BE;
+  --navy:#0F1F3D;--navy-2:#1A2F56;--rood:#B71C1C;--rood-2:#8F1414;--rood-zacht:#FBEAEA;
+  --ok:#1B7A3E;--ok-zacht:#E6F3EA;--let:#8A5D00;--let-zacht:#FAF0DA;
+  --fh:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --fb:"Public Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --radc:4px;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--ground);color:var(--ink);font-family:var(--fb);font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-family:var(--fh);font-weight:700;line-height:1.18;letter-spacing:-.015em;text-wrap:balance}
+p{margin:0}
+img{max-width:100%;display:block}
+button{font:inherit;color:inherit;cursor:pointer;font-family:var(--fb)}
+input{font:inherit;font-family:var(--fb)}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.88em;background:var(--surface-2);padding:2px 6px;border-radius:3px;word-break:break-all}
+:focus-visible{outline:2px solid var(--rood);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.wrap{max-width:960px;margin:0 auto;padding:26px 18px 70px}
+
+/* ---------- inlogscherm ---------- */
+.auth{
+  display:grid;grid-template-columns:1fr 1fr;min-height:540px;margin-top:26px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);
+  overflow:hidden;box-shadow:0 2px 16px rgba(20,25,30,.09);
+}
+@media (max-width:840px){.auth{grid-template-columns:1fr}.auth-foto{min-height:190px}}
+.auth-foto{position:relative;background:var(--navy)}
+.auth-foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.auth-foto .waas{position:absolute;inset:0;background:linear-gradient(200deg,rgba(15,31,61,.2) 0%,rgba(15,31,61,.88) 78%)}
+.auth-foto .bij{position:absolute;left:0;right:0;bottom:0;padding:28px;color:#fff}
+.auth-foto .bij h3{font-size:22px;line-height:1.25;margin-bottom:8px}
+.auth-foto .bij p{font-size:13.5px;opacity:.82;max-width:34ch}
+.auth-form{padding:36px;display:flex;flex-direction:column;gap:17px;justify-content:center}
+@media (max-width:520px){.auth-form{padding:24px}}
+.auth-form .logo{height:38px;width:auto;align-self:flex-start;margin-bottom:2px}
+.auth-form h2{font-size:23px}
+.auth-form .lead{font-size:14px;color:var(--muted)}
+
+.veld{display:flex;flex-direction:column;gap:6px}
+.veld label{font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.veld input{background:var(--ground);border:1px solid var(--line-2);border-radius:var(--radc);padding:12px 13px;font-size:16px;color:var(--ink);width:100%}
+.veld input:focus{outline:2px solid var(--rood);outline-offset:-1px;border-color:var(--rood)}
+
+.knop{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  border-radius:50px;padding:13px 24px;border:1.5px solid transparent;
+  font-family:var(--fh);font-size:13.5px;font-weight:700;
+  background:var(--rood);color:#fff;transition:background .14s,opacity .14s;
+}
+.knop:hover{background:var(--rood-2)}
+.knop:disabled{opacity:.45;cursor:not-allowed}
+.knop.grijs{background:var(--surface);border-color:var(--line-2);color:var(--ink)}
+.knop.grijs:hover{background:var(--surface-2)}
+.knop.klein{padding:9px 17px;font-size:12.5px}
+.knoprij{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.fout{background:var(--rood-zacht);border-left:3px solid var(--rood);padding:12px 15px;font-size:14px;border-radius:0 var(--radc) var(--radc) 0}
+.fout b{display:block;margin-bottom:2px}
+.let{background:var(--let-zacht);border-left:3px solid var(--let);padding:12px 15px;font-size:14px;color:#4A3200;border-radius:0 var(--radc) var(--radc) 0}
+.goed{background:var(--ok-zacht);border-left:3px solid var(--ok);padding:12px 15px;font-size:14px;color:#14612F;border-radius:0 var(--radc) var(--radc) 0}
+
+/* ---------- controlepaneel ---------- */
+.balk{background:var(--navy);color:#fff;padding:0 18px;min-height:60px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.balk img{height:32px;width:auto;background:#fff;padding:3px 5px;border-radius:3px}
+.balk .naam{font-family:var(--fh);font-weight:700;font-size:15px;line-height:1.1}
+.balk .naam span{display:block;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;opacity:.6;font-weight:600}
+.balk .rechts{margin-left:auto;display:flex;align-items:center;gap:13px}
+.balk .wie{font-size:13px;line-height:1.25;text-align:right}
+.balk .wie span{display:block;font-size:11.5px;opacity:.62}
+@media (max-width:600px){.balk{padding:10px 16px}.balk .wie{display:none}}
+
+.kop{display:flex;flex-direction:column;gap:7px;margin-bottom:22px}
+.kop h1{font-size:clamp(24px,4.2vw,33px)}
+.kop h1 em{font-style:normal;color:var(--rood)}
+.kop p{color:var(--muted);max-width:64ch}
+
+.paneel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);box-shadow:0 1px 2px rgba(20,25,30,.06);margin-bottom:18px;overflow:hidden}
+.paneel-kop{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.paneel-kop h2{font-size:16px}
+.paneel-body{padding:6px 0}
+
+.regel{display:flex;align-items:flex-start;gap:13px;padding:13px 18px;border-bottom:1px solid var(--line);font-size:14.5px}
+.regel:last-child{border-bottom:0}
+.vink{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;margin-top:1px}
+.vink svg{width:12px;height:12px;color:#fff}
+.vink.ja{background:var(--ok)}
+.vink.nee{background:var(--rood)}
+.vink.bezig{background:var(--line-2)}
+.regel .tekst{flex:1;min-width:0}
+.regel .tekst b{display:block;font-family:var(--fh);font-size:14.5px;margin-bottom:1px}
+.regel .tekst span{font-size:13px;color:var(--muted);display:block;line-height:1.5}
+.regel .waarde{flex:none;font-family:var(--fh);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.regel.mis .waarde{color:var(--rood)}
+
+.laden{display:flex;gap:11px;align-items:center;color:var(--muted);font-size:14px;padding:18px}
+.tol{width:17px;height:17px;border:2.5px solid var(--line-2);border-top-color:var(--rood);border-radius:50%;animation:draai .7s linear infinite;flex:none}
+@keyframes draai{to{transform:rotate(360deg)}}
+
+.slot{margin-top:26px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;display:flex;flex-direction:column;gap:10px}
+.slot strong{color:var(--ink)}

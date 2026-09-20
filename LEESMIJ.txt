@@ -1,0 +1,38 @@
+BHV RODEN LEEROMGEVING, STAP 8
+==============================
+De eerste echte pagina die op jouw database draait.
+
+WAT DIT IS
+----------
+Een inlogpagina plus een systeemcontrole. Log je in met je eigen
+account, dan haalt de pagina rechtstreeks uit Supabase op wie je
+bent en wat er in de database staat. Staat alles op groen, dan
+klopt het fundament en kan de rest erbovenop.
+
+OP NETLIFY ZETTEN
+-----------------
+1. app.netlify.com, Add new site, Deploy manually.
+   Een NIEUWE site, niet je demo of bhvroden.nl overschrijven.
+2. Sleep deze map erin.
+3. Open het adres dat je krijgt en log in met:
+      wendy@getfitgirl.nl   of   info@bhvroden.nl
+   met het wachtwoord dat je in Supabase hebt ingesteld.
+
+WAT JE ZOU MOETEN ZIEN
+----------------------
+Jouw account   : naam, rol beheerder, organisatie BHV Roden
+                 Geboortedatum staat op "nog leeg", dat hoort zo.
+In de database : 1 cursus, 4 modules, 13 lessen,
+                 25 evaluatievragen, 15 toetsvragen, 24 examenvragen,
+                 1 organisatie
+
+Onderaan verschijnt een groene of oranje balk met de uitslag.
+Klopt er iets niet, stuur dan een schermafbeelding van die pagina.
+
+BESTANDEN
+---------
+index.html   de pagina
+style.css    de opmaak
+config.js    het adres en de sleutel van jouw Supabase
+app.js       het inloggen en de controle
+img/         logo en foto
