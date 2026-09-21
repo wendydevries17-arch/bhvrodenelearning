@@ -576,6 +576,15 @@
     var rij = alleLessenOpVolgorde(), af = telAf();
     var pct = rij.length ? Math.round(af * 100 / rij.length) : 0;
 
+    // Een persoonlijke groet. Weten we de voornaam nog niet, dan
+    // blijft het gewoon bij de naam van de opleiding.
+    var uur = new Date().getHours();
+    var dagdeel = uur < 6 ? "Goedenacht" : uur < 12 ? "Goedemorgen" : uur < 18 ? "Hallo" : "Goedenavond";
+    var voornaam = S.profiel && S.profiel.voornaam ? String(S.profiel.voornaam).trim() : "";
+    $("#dash-groet").textContent = voornaam
+      ? dagdeel + ", " + voornaam
+      : "Bedrijfshulpverlening";
+
     $("#dash-titel").textContent = S.cursus.titel;
     $("#dash-omschrijving").textContent = S.cursus.omschrijving || "";
     $("#dash-bar").style.width = pct + "%";
@@ -936,6 +945,7 @@
         score: u.score, geslaagd: u.geslaagd, ingeleverd_op: new Date().toISOString()
       });
       tekenUitslag(u);
+      if (u.certificaat) stuurWachtrijStil();
     });
   }
 
@@ -1026,6 +1036,24 @@
     $("#cert-terug").addEventListener("click", naarDashboard);
   }
 
+
+  /* ---------------------------------------------------------------------
+     De wachtrij op de achtergrond legen
+
+     Zodra er iets klaargezet is, vragen we Supabase meteen om het te
+     versturen. Lukt dat niet, bijvoorbeeld omdat het net even niet wil,
+     dan blijft de mail gewoon in de wachtrij staan en kan hij later
+     alsnog weg met de knop in het beheer. Daarom geen foutmelding op
+     het scherm: de mail is niet weg, alleen nog niet verstuurd.
+
+     De database beslist wie wat mag versturen. Een cursist krijgt hier
+     alleen zijn eigen certificaat te pakken, niemand anders.
+     --------------------------------------------------------------------- */
+  function stuurWachtrijStil() {
+    try {
+      sb.functions.invoke("mail", { body: { max: 25 } }).catch(function () {});
+    } catch (e) { /* stil */ }
+  }
 
   /* =====================================================================
      BEHEER
@@ -1293,6 +1321,7 @@
       }
       B.deelnemers = null;
       toonLinks(r.data);
+      if (r.data && r.data.nieuw) stuurWachtrijStil();
     });
   }
 
@@ -1362,13 +1391,16 @@
 
     uit += '<div class="paneel" style="margin-top:24px"><div class="paneel-kop"><h2>Bestaande bedrijven</h2></div>' +
       '<div class="tabel-scroll" style="border:0;box-shadow:none"><table><thead><tr>' +
-      "<th>Bedrijf</th><th>Webadres</th><th>Contactpersoon</th><th>Huisstijl</th></tr></thead><tbody>" +
+      "<th>Bedrijf</th><th>Webadres</th><th>Contactpersoon</th><th>Huisstijl</th><th>Certificaten</th></tr></thead><tbody>" +
       B.organisaties.map(function (o) {
         return "<tr><td class=\"nm\">" + esc(o.naam) + (o.is_eigenaar ? ' <span class="chip nieuw">eigen</span>' : "") + "</td>" +
           '<td class="num" style="font-size:12px;color:var(--muted)">' + esc(o.slug) + ".bhvrodenelearning.nl</td>" +
           "<td>" + esc(o.contactpersoon_naam || "") + (o.contactpersoon_email ? "<br><span style=\"font-size:12px;color:var(--muted)\">" + esc(o.contactpersoon_email) + "</span>" : "") + "</td>" +
           '<td><span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:' + esc(o.kleur_primair) + ';vertical-align:middle"></span>' +
-          '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td></tr>';
+          '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td>' +
+          "<td>" + (o.contactpersoon_email
+            ? '<button type="button" class="btn btn-g btn-sm" data-cert-org="' + esc(o.id) + '">Naar contactpersoon</button>'
+            : '<span class="hint">geen e-mailadres</span>') + "</td></tr>";
       }).join("") + "</tbody></table></div></div>";
 
     $("#beheer-paneel").innerHTML = uit;
@@ -1379,6 +1411,9 @@
     });
     koppelKleur("b-p", "b-pt"); koppelKleur("b-a", "b-at");
     $("#b-maak").addEventListener("click", maakBedrijf);
+    $("#beheer-paneel").querySelectorAll("[data-cert-org]").forEach(function (b) {
+      b.addEventListener("click", function () { stuurCertificaten(b); });
+    });
     tekenVoorbeeld();
     return Promise.resolve();
   }
@@ -1439,6 +1474,36 @@
   }
 
   /* ---------- certificaten ---------- */
+  /* Alle geldige certificaten van een bedrijf, in een mail naar de
+     contactpersoon. De database kijkt of er wel een adres is en of er
+     wel iets te sturen valt, dus hier hoeft dat niet nog eens. */
+  function stuurCertificaten(knop) {
+    var was = knop.textContent;
+    knop.disabled = true;
+    knop.textContent = "Bezig";
+    sb.rpc("certificaten_naar_contact", { p_org: knop.dataset.certOrg }).then(function (r) {
+      if (r.error) {
+        knop.disabled = false; knop.textContent = was;
+        toast(r.error.message);
+        return;
+      }
+      var u = r.data || {};
+      return sb.functions.invoke("mail", { body: { max: 10 } }).then(function (q) {
+        var d = q.data || {};
+        if (d.fout || d.mislukt) {
+          knop.textContent = "Staat klaar";
+          toast("Klaargezet, maar het versturen lukte nog niet. Kijk op het tabblad Mail.");
+          return;
+        }
+        knop.textContent = "Verstuurd";
+        toast(u.aantal + (u.aantal === 1 ? " certificaat" : " certificaten") + " naar " + u.aan);
+      });
+    }).catch(function (e) {
+      knop.disabled = false; knop.textContent = was;
+      toast(e && e.message ? e.message : "Het lukte niet");
+    });
+  }
+
   function tekenCertificaten() {
     return sb.from("certificaten")
       .select("nummer, naam_op_certificaat, geboortedatum, cursus_titel, score, behaald_op, geldig_tot, organisatie_id, ingetrokken_op")
@@ -1498,6 +1563,15 @@
     mislukt:     ["mis", "mislukt"]
   };
 
+  var MAIL_SOORT = {
+    uitnodiging:         "Uitnodiging",
+    herinnering:         "Herinnering",
+    certificaat:         "Certificaat",
+    certificaten_bedrijf: "Naar contactpersoon"
+  };
+
+  var M = { soort: "alles" };
+
   function tekenMail() {
     return sb.rpc("mail_logboek", { p_max: 200 }).then(function (r) {
       if (r.error) throw r.error;
@@ -1507,7 +1581,18 @@
       var weg   = lijst.filter(function (x) { return x.status === "verstuurd"; });
 
       var uit = '<div class="kop"><h1>De <em>mail</em></h1>' +
-        "<p>Uitnodigingen en certificaten worden automatisch klaargezet. Met de knop hieronder gaan ze de deur uit.</p></div>";
+        "<p>Uitnodigingen en certificaten gaan vanzelf de deur uit. Hier zie je of dat gelukt is, " +
+        "en kun je nazenden wat is blijven hangen.</p></div>";
+
+      function telSoort(k) {
+        return lijst.filter(function (x) { return x.soort === k; }).length;
+      }
+      uit += '<div class="tegels">' +
+        tegel(telSoort("uitnodiging"), "Uitnodigingen", "verstuurd en klaar") +
+        tegel(telSoort("herinnering"), "Herinneringen", "automatisch verstuurd") +
+        tegel(telSoort("certificaat"), "Certificaten", "naar de deelnemer", "ok") +
+        tegel(telSoort("certificaten_bedrijf"), "Naar bedrijven", "verzamelmails") +
+        "</div>";
 
       uit += '<div class="tegels">' +
         tegel(klaar.length, "Staat klaar", "wacht op versturen", klaar.length ? "let" : "") +
@@ -1522,24 +1607,40 @@
         '<div class="paneel-body" id="m-uitslag">' +
         (klaar.length
           ? "<p>Er " + (klaar.length === 1 ? "staat " : "staan ") + klaar.length +
-            (klaar.length === 1 ? " mail" : " mails") + " klaar. Je kunt dit zo vaak doen als je wilt, " +
-            "wat al verstuurd is gaat niet nog eens weg.</p>"
-          : "<p>De wachtrij is leeg. Zodra je iemand uitnodigt of iemand slaagt voor het examen komt hier vanzelf weer iets te staan.</p>") +
+            (klaar.length === 1 ? " mail" : " mails") + " klaar. Meestal is dat omdat het venster werd gesloten " +
+            "voordat hij weg kon. Je kunt dit zo vaak doen als je wilt, wat al verstuurd is gaat niet nog eens weg.</p>"
+          : "<p>De wachtrij is leeg, alles is verstuurd. Hier hoef je dus normaal niets te doen.</p>") +
         "</div></div>";
 
       if (!lijst.length) {
         uit += '<div class="tabel-scroll"><div class="leeg">Nog geen mail. Nodig iemand uit, dan verschijnt hier de eerste regel.</div></div>';
       } else {
+        var soorten = ["alles"].concat(Object.keys(MAIL_SOORT).filter(function (k) {
+          return lijst.some(function (x) { return x.soort === k; });
+        }));
+        if (soorten.indexOf(M.soort) < 0) M.soort = "alles";
+        var zicht = M.soort === "alles"
+          ? lijst
+          : lijst.filter(function (x) { return x.soort === M.soort; });
+
         uit += '<div class="paneel"><div class="paneel-kop"><h2>Het logboek</h2>' +
           '<button type="button" class="btn btn-g btn-sm" id="m-ververs">Ververs</button></div>' +
+          '<div class="knoppenrij" style="padding:14px 18px 2px;margin:0">' +
+          soorten.map(function (k) {
+            return '<button type="button" class="btn btn-sm ' + (k === M.soort ? "btn-p" : "btn-g") +
+              '" data-soort="' + k + '">' +
+              (k === "alles" ? "Alles" : esc(MAIL_SOORT[k])) +
+              " " + (k === "alles" ? lijst.length : lijst.filter(function (x) { return x.soort === k; }).length) +
+              "</button>";
+          }).join("") + "</div>" +
           '<div class="tabel-scroll"><table><thead><tr>' +
           "<th>Aan</th><th>Soort</th><th>Status</th><th>Klaargezet</th><th>Verstuurd</th><th></th>" +
           "</tr></thead><tbody>" +
-          lijst.map(function (x) {
+          zicht.map(function (x) {
             var s = MAIL_STATUS[x.status] || ["nieuw", x.status];
             return "<tr>" +
               '<td class="nm">' + esc(x.aan) + "</td>" +
-              "<td>" + esc(x.soort === "certificaat" ? "Certificaat" : "Uitnodiging") + "</td>" +
+              "<td>" + esc(MAIL_SOORT[x.soort] || x.soort) + "</td>" +
               '<td><span class="chip ' + s[0] + '">' + esc(s[1]) + "</span>" +
               (x.fout ? '<div class="klein mis-tekst">' + esc(x.fout) + "</div>" : "") + "</td>" +
               '<td class="num">' + esc(datumNL(x.aangemaakt_op)) + "</td>" +
@@ -1550,14 +1651,18 @@
           }).join("") + "</tbody></table></div></div>";
       }
 
-      uit += '<div class="let" style="margin-top:20px"><b>Waar komt de mail vandaan.</b> ' +
-        "De mail gaat weg namens cursus@bhvrodenelearning.nl en antwoorden komen binnen op info@bhvroden.nl. " +
-        "Werkt de knop niet, kijk dan eerst op Systeemcontrole.</div>";
+      uit += '<div class="let" style="margin-top:20px"><b>Hoe het werkt.</b> ' +
+        "Nodig je iemand uit, dan gaat de mail meteen weg. Slaagt iemand voor het examen, dan krijgt hij " +
+        "zijn certificaat als PDF binnen een minuut. Deze pagina is het vangnet voor als dat een keer misgaat. " +
+        "De mail gaat weg namens cursus@bhvrodenelearning.nl en antwoorden komen binnen op info@bhvroden.nl.</div>";
 
       $("#beheer-paneel").innerHTML = uit;
 
       if ($("#m-stuur")) $("#m-stuur").addEventListener("click", verstuurWachtrij);
       if ($("#m-ververs")) $("#m-ververs").addEventListener("click", function () { naarBeheer("mail"); });
+      $("#beheer-paneel").querySelectorAll("[data-soort]").forEach(function (b) {
+        b.addEventListener("click", function () { M.soort = b.dataset.soort; tekenMail(); });
+      });
       $("#beheer-paneel").querySelectorAll("[data-opnieuw]").forEach(function (b) {
         b.addEventListener("click", function () {
           b.disabled = true;

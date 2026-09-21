@@ -68,6 +68,10 @@ async function haalPlaatje(url: string): Promise<Uint8Array | null> {
   } catch { return null; }
 }
 
+function schoneNaam(n: unknown): string {
+  return String(n ?? "deelnemer").replace(/[^\p{L}\p{N} .-]/gu, "").trim() || "deelnemer";
+}
+
 function naarBase64(b: Uint8Array): string {
   let s = "";
   const stap = 0x8000;
@@ -310,6 +314,82 @@ function certificaatmail(r: Record<string, unknown>, site: string) {
   };
 }
 
+
+function herinneringsmail(r: Record<string, unknown>, site: string) {
+  const naam = r.voornaam ? `Hallo ${veilig(r.voornaam)},` : "Hallo,";
+  const af = Number(r.af ?? 0), totaal = Number(r.totaal ?? 0);
+  const uren = r.duur ? Math.round(Number(r.duur) / 60) : 4;
+
+  const binnen = r.begonnen
+    ? `
+    <p style="margin:0 0 14px;">${naam}</p>
+    <p style="margin:0 0 14px;">Je bent begonnen aan de e-learning bedrijfshulpverlening, maar de laatste
+      tijd is het blijven liggen. Dat gebeurt, daarom deze herinnering.</p>
+    ${feiten([
+      ["Cursus", String(r.cursus ?? "")],
+      ["Hoe ver je bent", totaal ? `${af} van de ${totaal} lessen` : ""],
+      ["Afronden voor", datumNL(r.deadline)],
+    ])}
+    <p style="margin:0 0 4px;">Je voortgang staat er gewoon nog. Je gaat verder waar je gebleven was.</p>
+    ${knop(String(r.link ?? site), "Verder met de cursus")}`
+    : `
+    <p style="margin:0 0 14px;">${naam}</p>
+    <p style="margin:0 0 14px;">Je bent door <strong style="color:#1C1C1C;">${veilig(r.bedrijf)}</strong>
+      aangemeld voor de e-learning bedrijfshulpverlening, maar je bent nog niet begonnen.
+      Met de knop hieronder maak je je account aan.</p>
+    ${feiten([
+      ["Cursus", String(r.cursus ?? "")],
+      ["Tijd die het kost", `ongeveer ${uren} uur`],
+      ["Afronden voor", datumNL(r.deadline)],
+    ])}
+    <p style="margin:0 0 4px;">Je kunt tussendoor stoppen, je voortgang blijft bewaard.</p>
+    ${knop(String(r.link ?? site), "Account aanmaken en beginnen")}
+    <p style="margin:14px 0 0;font-size:13px;color:#6B6B66;">
+      Deze link is persoonlijk en werkt alleen voor dit e-mailadres.</p>`;
+
+  return {
+    onderwerp: r.begonnen
+      ? "Je bent goed op weg met je BHV e-learning"
+      : "Je BHV e-learning staat nog op je te wachten",
+    html: omhulsel(site, "Je BHV e-learning", binnen),
+  };
+}
+
+function bedrijfsmail(r: Record<string, unknown>, site: string, aantal: number) {
+  const naam = r.voornaam ? `Hallo ${veilig(r.voornaam)},` : "Hallo,";
+  const stuks = (r.stuks ?? []) as Record<string, unknown>[];
+
+  const rijen = stuks.map((c) =>
+    `<tr>
+       <td style="padding:7px 14px 7px 0;color:#1C1C1C;font-weight:bold;white-space:nowrap;">${veilig(c.naam)}</td>
+       <td style="padding:7px 14px 7px 0;color:#6B6B66;white-space:nowrap;">${veilig(datumNL(c.geboortedatum))}</td>
+       <td style="padding:7px 0;color:#6B6B66;white-space:nowrap;">geldig tot ${veilig(datumNL(c.geldig_tot))}</td>
+     </tr>`).join("");
+
+  const binnen = `
+    <p style="margin:0 0 14px;">${naam}</p>
+    <p style="margin:0 0 14px;">Hierbij de certificaten bedrijfshulpverlening van
+      <strong style="color:#1C1C1C;">${veilig(r.bedrijf)}</strong>. Ze zitten als PDF bij deze mail,
+      een bestand per persoon.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0"
+      style="background:#EEF1F6;border-radius:4px;padding:8px 16px;margin:18px 0;font-family:Helvetica,Arial,sans-serif;font-size:13.5px;">
+      ${rijen}
+    </table>
+    ${aantal < stuks.length
+      ? `<p style="margin:0 0 14px;font-size:13px;color:#6B6B66;">Er zitten ${aantal} bestanden bij deze mail.
+         De rest sturen we in een volgende mail, anders wordt het bericht te groot.</p>`
+      : ""}
+    <p style="margin:18px 0 0;padding:13px 16px;background:#FAF0DA;border-left:3px solid #8A5D00;
+       border-radius:0 4px 4px 0;font-size:13.5px;color:#4A3200;">
+      <strong>Let op het theoriegedeelte.</strong> Deze certificaten gaan over de theorie. Om echt
+      bedrijfshulpverlener te zijn volgt daarna nog de praktijkdag. Die stemmen we apart met je af.</p>`;
+
+  return {
+    onderwerp: `De BHV certificaten van ${String(r.bedrijf ?? "je bedrijf")}`,
+    html: omhulsel(site, "De BHV certificaten", binnen),
+  };
+}
+
 /* ---------------------------------------------------------------------
    De afhandeling
    --------------------------------------------------------------------- */
@@ -355,8 +435,16 @@ Deno.serve(async (req: Request) => {
   }
 
   let wachtrij;
+  let herinneringen: unknown = null;
   try {
     const body = await req.json().catch(() => ({}));
+
+    // Vraagt de aanroeper om herinneringen, dan zet de database eerst
+    // op een rij wie er stilligt. Daarna gaat alles in een keer weg.
+    if (body?.herinneren) {
+      herinneringen = await rpc("zet_herinneringen", {});
+    }
+
     wachtrij = await rpc("mail_wachtrij", { p_max: Number(body?.max) || 50 });
   } catch (e) {
     return antwoord({
@@ -376,7 +464,7 @@ Deno.serve(async (req: Request) => {
 
   // Het logo en de handtekening halen we een keer op, niet per mail.
   let plaatjes: { logo: Uint8Array | null; handtekening: Uint8Array | null } | null = null;
-  if (regels.some((r) => r.soort === "certificaat")) {
+  if (regels.some((r) => r.soort === "certificaat" || r.soort === "certificaten_bedrijf")) {
     const [logo, hand] = await Promise.all([
       haalPlaatje(`${site}/img/cert-logo.png`),
       haalPlaatje(`${site}/img/cert-handtekening.png`),
@@ -386,20 +474,42 @@ Deno.serve(async (req: Request) => {
 
   for (const r of regels) {
     try {
-      const mail = r.soort === "certificaat"
-        ? certificaatmail(r, site)
-        : uitnodigingsmail(r, site);
+      const bijlagen: Record<string, string>[] = [];
+
+      let mail;
+      if (r.soort === "certificaat") {
+        mail = certificaatmail(r, site);
+      } else if (r.soort === "herinnering") {
+        mail = herinneringsmail(r, site);
+      } else if (r.soort === "certificaten_bedrijf") {
+        const stuks = (r.stuks ?? []) as Record<string, unknown>[];
+        if (!stuks.length) throw new Error("geen geldige certificaten meer bij dit bedrijf");
+        // Meer dan vijftig bijlagen wordt te zwaar voor een mailbericht.
+        const mee = stuks.slice(0, 50);
+        if (plaatjes) {
+          for (const c of mee) {
+            try {
+              const pdf = await maakCertificaat(c, plaatjes);
+              bijlagen.push({
+                filename: `Certificaat BHV Roden ${schoneNaam(c.naam)}.pdf`,
+                content: naarBase64(pdf),
+              });
+            } catch { /* die ene slaan we over */ }
+          }
+        }
+        mail = bedrijfsmail(r, site, bijlagen.length);
+      } else {
+        mail = uitnodigingsmail(r, site);
+      }
 
       // Bij een certificaat gaat de PDF mee als bijlage. Lukt het maken
       // niet, dan gaat de mail gewoon zonder bijlage de deur uit. Beter
       // een mail zonder bestand dan helemaal geen bericht.
-      const bijlagen: Record<string, string>[] = [];
       if (r.soort === "certificaat" && plaatjes) {
         try {
           const pdf = await maakCertificaat(r, plaatjes);
-          const schoon = String(r.naam ?? "deelnemer").replace(/[^\p{L}\p{N} .-]/gu, "").trim();
           bijlagen.push({
-            filename: `Certificaat BHV Roden ${schoon}.pdf`,
+            filename: `Certificaat BHV Roden ${schoneNaam(r.naam)}.pdf`,
             content: naarBase64(pdf),
           });
         } catch (e) {
@@ -439,6 +549,7 @@ Deno.serve(async (req: Request) => {
     gevonden: regels.length,
     verstuurd,
     mislukt,
+    herinneringen,
     meldingen: meldingen.slice(0, 10),
   });
 });

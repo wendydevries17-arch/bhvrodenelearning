@@ -56,9 +56,11 @@ mail sturen namens jouw domein.
 Het werkt zo:
 1. Nodig je iemand uit of slaagt iemand, dan zet de database de mail
    in een wachtrij
-2. Op het tabblad Mail in het beheer zie je wat er klaarstaat
-3. De knop Versturen vraagt aan Supabase om het te doen
-4. Supabase heeft de sleutel, verstuurt via Resend en meldt terug
+2. Diezelfde handeling vraagt Supabase meteen om te versturen, dus
+   je hoeft nergens op te drukken
+3. Supabase heeft de sleutel, verstuurt via Resend en meldt terug
+4. Ging er iets mis, dan blijft de mail in de wachtrij staan. Op het
+   tabblad Mail in het beheer zie je dat en kun je hem nazenden
 
 HET CERTIFICAAT
 ---------------
