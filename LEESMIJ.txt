@@ -1,20 +1,23 @@
-BHV RODEN LEEROMGEVING, STAP 8
-==============================
-De eerste echte pagina die op jouw database draait.
+BHV RODEN LEEROMGEVING, STAP 8b
+===============================
+Dezelfde pagina als vorige keer, maar nu met de juiste sleutel.
 
-WAT DIT IS
-----------
-Een inlogpagina plus een systeemcontrole. Log je in met je eigen
-account, dan haalt de pagina rechtstreeks uit Supabase op wie je
-bent en wat er in de database staat. Staat alles op groen, dan
-klopt het fundament en kan de rest erbovenop.
+WAT ER MIS WAS
+--------------
+Supabase is onlangs van sleutelsysteem gewisseld. De oude soort
+heette anon key en begon met eyJ. Jouw project heeft die soort
+uitgezet, vandaar de melding "Legacy API keys are disabled".
+In config.js staat nu de nieuwe publishable key. Die begint met
+sb_publishable_ en hoort gewoon in de browser thuis.
 
 OP NETLIFY ZETTEN
 -----------------
-1. app.netlify.com, Add new site, Deploy manually.
-   Een NIEUWE site, niet je demo of bhvroden.nl overschrijven.
-2. Sleep deze map erin.
-3. Open het adres dat je krijgt en log in met:
+1. Ga naar je bestaande site bhvrodenelearning.netlify.app.
+2. Klik op Deploys.
+3. Sleep deze map in het vak "Drag and drop your project
+   output folder here".
+   Dus NIET een nieuwe site aanmaken, gewoon over de oude heen.
+4. Open het adres en log in met:
       wendy@getfitgirl.nl   of   info@bhvroden.nl
    met het wachtwoord dat je in Supabase hebt ingesteld.
 

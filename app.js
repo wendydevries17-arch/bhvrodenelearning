@@ -69,6 +69,8 @@
 
   function foutTitel(e) {
     var m = (e.message || "").toLowerCase();
+    if (m.indexOf("legacy api key") > -1) return "Verkeerde sleutel in config.js";
+    if (m.indexOf("invalid api key") > -1) return "Verkeerde sleutel in config.js";
     if (m.indexOf("invalid login") > -1) return "Inloggen mislukt";
     if (m.indexOf("email not confirmed") > -1) return "Account nog niet bevestigd";
     if (m.indexOf("failed to fetch") > -1) return "Geen verbinding";
@@ -76,6 +78,8 @@
   }
   function foutUitleg(e) {
     var m = (e.message || "").toLowerCase();
+    if (m.indexOf("legacy api key") > -1 || m.indexOf("invalid api key") > -1)
+      return "Supabase gebruikt in dit project de nieuwe publishable key, en in config.js staat nog de oude. Haal in Supabase onder Project Settings, API Keys de sleutel op die begint met sb_publishable_ en zet die in config.js.";
     if (m.indexOf("invalid login") > -1)
       return "Het e-mailadres of het wachtwoord klopt niet. Let op dat het account in Supabase onder Authentication moet bestaan.";
     if (m.indexOf("email not confirmed") > -1)
