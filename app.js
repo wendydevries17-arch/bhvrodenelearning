@@ -1477,10 +1477,10 @@
             }).join("") + "</tbody></table></div>";
         }
 
-        uit += '<div class="let" style="margin-top:20px"><b>De PDF komt nog.</b> ' +
-          "De regels hierboven zijn echt en de nummers liggen vast. Iedereen die slaagt krijgt zijn certificaat " +
-          "per mail, dat zie je terug op het tabblad Mail. Alleen het nette bestand om te bewaren of af te drukken " +
-          "maken we in een volgende stap.</div>";
+        uit += '<div class="let" style="margin-top:20px"><b>Het bestand gaat vanzelf mee.</b> ' +
+          "Iedereen die slaagt krijgt zijn certificaat als PDF bij de mail, op A4 en in de huisstijl van BHV Roden. " +
+          "Op het tabblad Mail zie je of hij de deur uit is. Wil je er zelf nog een, zet die regel daar dan opnieuw in " +
+          "de wachtrij.</div>";
 
         $("#beheer-paneel").innerHTML = uit;
       });

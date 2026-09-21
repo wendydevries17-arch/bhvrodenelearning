@@ -14,6 +14,8 @@
 //  Nodig als geheim bij de functie: RESEND_API_KEY
 // =====================================================================
 
+import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+
 const RESEND = "https://api.resend.com/emails";
 
 const cors = {
@@ -39,6 +41,154 @@ function datumNL(iso: unknown): string {
   const d = String(iso ?? "").slice(0, 10).split("-");
   return d.length === 3 ? `${d[2]}-${d[1]}-${d[0]}` : "";
 }
+
+
+/* ---------------------------------------------------------------------
+   Het certificaat als PDF
+
+   A4 staand, altijd in de huisstijl van BHV Roden, ook als de cursist
+   bij een klantbedrijf hoort. Het logo en de handtekening worden van de
+   website gehaald, zodat je ze daar kunt vervangen zonder deze functie
+   aan te raken.
+   --------------------------------------------------------------------- */
+const NAVY  = rgb(0.059, 0.122, 0.239);
+const ROOD  = rgb(0.718, 0.110, 0.110);
+const INKT  = rgb(0.110, 0.110, 0.110);
+const GRIJS = rgb(0.420, 0.420, 0.400);
+const LIJN  = rgb(0.863, 0.863, 0.847);
+const VLAK  = rgb(0.933, 0.945, 0.965);
+const ZAND  = rgb(0.980, 0.941, 0.855);
+const BRUIN = rgb(0.290, 0.196, 0);
+
+async function haalPlaatje(url: string): Promise<Uint8Array | null> {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return new Uint8Array(await r.arrayBuffer());
+  } catch { return null; }
+}
+
+function naarBase64(b: Uint8Array): string {
+  let s = "";
+  const stap = 0x8000;
+  for (let i = 0; i < b.length; i += stap) {
+    s += String.fromCharCode(...b.subarray(i, i + stap));
+  }
+  return btoa(s);
+}
+
+async function maakCertificaat(
+  g: Record<string, unknown>,
+  plaatjes: { logo: Uint8Array | null; handtekening: Uint8Array | null },
+): Promise<Uint8Array> {
+  const pdf = await PDFDocument.create();
+  pdf.setTitle(`Certificaat ${String(g.nummer ?? "")}`);
+  pdf.setAuthor("BHV Roden");
+  pdf.setSubject(String(g.cursus ?? "Bedrijfshulpverlening"));
+  pdf.setProducer("BHV Roden leeromgeving");
+
+  const B = 595.28, H = 841.89;
+  const p = pdf.addPage([B, H]);
+  const vet    = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const gewoon = await pdf.embedFont(StandardFonts.Helvetica);
+
+  const midden = (t: string, f: any, s: number) => (B - f.widthOfTextAtSize(t, s)) / 2;
+  const tekstM = (t: string, y: number, f: any, s: number, k: any) =>
+    p.drawText(t, { x: midden(t, f, s), y, size: s, font: f, color: k });
+
+  p.drawRectangle({ x: 0, y: H - 10, width: B, height: 10, color: NAVY });
+  p.drawRectangle({ x: 0, y: H - 10, width: 150, height: 10, color: ROOD });
+
+  let y = H - 62;
+
+  if (plaatjes.logo) {
+    const img = await pdf.embedPng(plaatjes.logo);
+    const w = 160, h = (img.height / img.width) * w;
+    p.drawImage(img, { x: (B - w) / 2, y: y - h, width: w, height: h });
+    y -= h + 40;
+  } else {
+    y -= 30;
+  }
+
+  tekstM("C E R T I F I C A A T", y, vet, 10.5, GRIJS);
+  y -= 30;
+  tekstM("Bedrijfshulpverlening", y, vet, 26, NAVY);
+  y -= 20;
+
+  const volledig = String(g.cursus ?? "").trim();
+  const onder = volledig.toLowerCase().startsWith("bedrijfshulpverlening")
+    ? volledig.slice("bedrijfshulpverlening".length).replace(/^[\s,.-]+/, "")
+    : volledig;
+  tekstM(onder || "theoriegedeelte", y, gewoon, 12.5, GRIJS);
+
+  y -= 44;
+  p.drawLine({ start: { x: 150, y }, end: { x: B - 150, y }, thickness: 0.8, color: LIJN });
+
+  y -= 30;
+  tekstM("Hierbij verklaart BHV Roden dat", y, gewoon, 12, GRIJS);
+
+  y -= 44;
+  const naam = String(g.naam ?? "");
+  let naamGrootte = 32;
+  while (vet.widthOfTextAtSize(naam, naamGrootte) > B - 120 && naamGrootte > 16) naamGrootte -= 1;
+  tekstM(naam, y, vet, naamGrootte, INKT);
+
+  const geboren = datumNL(g.geboortedatum);
+  if (geboren) { y -= 22; tekstM(`geboren op ${geboren}`, y, gewoon, 12, GRIJS); }
+
+  y -= 40;
+  const regels = [
+    "het theoriegedeelte van de opleiding bedrijfshulpverlening",
+    g.score != null
+      ? `met goed gevolg heeft afgerond, met een resultaat van ${g.score} procent.`
+      : "met goed gevolg heeft afgerond.",
+  ];
+  for (const r of regels) { tekstM(r, y, gewoon, 12, INKT); y -= 19; }
+
+  y -= 26;
+  const feiten: [string, string][] = ([
+    ["Behaald op", datumNL(g.behaald_op)],
+    ["Geldig tot", datumNL(g.geldig_tot)],
+    ["Certificaatnummer", String(g.nummer ?? "")],
+  ] as [string, string][]).filter(([, v]) => v);
+
+  const vakH = 26 * feiten.length + 20;
+  p.drawRectangle({ x: 110, y: y - vakH + 14, width: B - 220, height: vakH, color: VLAK });
+  let fy = y - 4;
+  for (const [k, v] of feiten) {
+    p.drawText(k, { x: 132, y: fy, size: 11, font: gewoon, color: GRIJS });
+    p.drawText(v, { x: B - 132 - vet.widthOfTextAtSize(v, 11), y: fy, size: 11, font: vet, color: INKT });
+    fy -= 26;
+  }
+  y = y - vakH + 14;
+
+  y -= 34;
+  const opmH = 56;
+  p.drawRectangle({ x: 110, y: y - opmH + 16, width: B - 220, height: opmH, color: ZAND });
+  p.drawRectangle({ x: 110, y: y - opmH + 16, width: 3, height: opmH, color: rgb(0.541, 0.365, 0) });
+  p.drawText("Dit is het theoriegedeelte.", { x: 128, y: y - 2, size: 10.5, font: vet, color: BRUIN });
+  p.drawText("Om als bedrijfshulpverlener inzetbaar te zijn volgt hierna nog de praktijkdag.", { x: 128, y: y - 18, size: 10.5, font: gewoon, color: BRUIN });
+  p.drawText("Die wordt apart met de deelnemer afgestemd.", { x: 128, y: y - 32, size: 10.5, font: gewoon, color: BRUIN });
+  y = y - opmH + 16;
+
+  const hy = Math.max(120, y - 96);
+  if (plaatjes.handtekening) {
+    const img = await pdf.embedPng(plaatjes.handtekening);
+    const w = 128, h = (img.height / img.width) * w;
+    p.drawImage(img, { x: (B - w) / 2, y: hy + 10, width: w, height: h });
+  }
+  p.drawLine({ start: { x: B / 2 - 90, y: hy }, end: { x: B / 2 + 90, y: hy }, thickness: 0.8, color: LIJN });
+  tekstM("Dirk Jan Mollema", hy - 18, vet, 11, INKT);
+  tekstM("BHV Roden", hy - 33, gewoon, 10.5, GRIJS);
+
+  p.drawLine({ start: { x: 60, y: 56 }, end: { x: B - 60, y: 56 }, thickness: 0.8, color: LIJN });
+  tekstM("BHV Roden, Roden. Dit certificaat is een jaar geldig vanaf de datum waarop het is behaald.", 40, gewoon, 9, GRIJS);
+  tekstM("bhvrodenelearning.nl", 27, gewoon, 9, GRIJS);
+
+  return await pdf.save();
+}
+
+/* ------------------------------------------------------------------- */
 
 /* ---------------------------------------------------------------------
    De opmaak van de mail. Bewust met tabellen en vaste kleuren, want
@@ -146,8 +296,8 @@ function certificaatmail(r: Record<string, unknown>, site: string) {
       ["Geldig tot", datumNL(r.geldig_tot)],
       ["Certificaatnummer", String(r.nummer ?? "")],
     ])}
-    <p style="margin:0 0 4px;">Je certificaat staat klaar in de leeromgeving. Daar kun je het altijd
-      terugvinden.</p>
+    <p style="margin:0 0 4px;">Je certificaat zit als PDF bij deze mail. Bewaar hem goed, en stuur hem
+      gerust door naar je werkgever. Hij staat ook in de leeromgeving.</p>
     ${knop(String(r.link ?? site), "Mijn certificaat bekijken")}
     <p style="margin:18px 0 0;padding:13px 16px;background:#FAF0DA;border-left:3px solid #8A5D00;
        border-radius:0 4px 4px 0;font-size:13.5px;color:#4A3200;">
@@ -224,11 +374,38 @@ Deno.serve(async (req: Request) => {
   let verstuurd = 0, mislukt = 0;
   const meldingen: string[] = [];
 
+  // Het logo en de handtekening halen we een keer op, niet per mail.
+  let plaatjes: { logo: Uint8Array | null; handtekening: Uint8Array | null } | null = null;
+  if (regels.some((r) => r.soort === "certificaat")) {
+    const [logo, hand] = await Promise.all([
+      haalPlaatje(`${site}/img/cert-logo.png`),
+      haalPlaatje(`${site}/img/cert-handtekening.png`),
+    ]);
+    plaatjes = { logo, handtekening: hand };
+  }
+
   for (const r of regels) {
     try {
       const mail = r.soort === "certificaat"
         ? certificaatmail(r, site)
         : uitnodigingsmail(r, site);
+
+      // Bij een certificaat gaat de PDF mee als bijlage. Lukt het maken
+      // niet, dan gaat de mail gewoon zonder bijlage de deur uit. Beter
+      // een mail zonder bestand dan helemaal geen bericht.
+      const bijlagen: Record<string, string>[] = [];
+      if (r.soort === "certificaat" && plaatjes) {
+        try {
+          const pdf = await maakCertificaat(r, plaatjes);
+          const schoon = String(r.naam ?? "deelnemer").replace(/[^\p{L}\p{N} .-]/gu, "").trim();
+          bijlagen.push({
+            filename: `Certificaat BHV Roden ${schoon}.pdf`,
+            content: naarBase64(pdf),
+          });
+        } catch (e) {
+          meldingen.push(`${r.aan}: het certificaat kon niet worden gemaakt, mail zonder bijlage verstuurd (${String(e).slice(0, 150)})`);
+        }
+      }
 
       const res = await fetch(RESEND, {
         method: "POST",
@@ -239,6 +416,7 @@ Deno.serve(async (req: Request) => {
           reply_to: antwoordAan,
           subject: mail.onderwerp,
           html: mail.html,
+          ...(bijlagen.length ? { attachments: bijlagen } : {}),
         }),
       });
 

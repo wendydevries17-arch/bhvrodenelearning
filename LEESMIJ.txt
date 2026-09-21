@@ -46,7 +46,6 @@ WAT ER NOG NIET IN ZIT
 ----------------------
 - De videos. Elke les toont nu een foto met de melding dat de
   video nog volgt. De lesstof zelf is compleet.
-- De PDF van het certificaat.
 
 DE MAIL
 -------
@@ -61,8 +60,20 @@ Het werkt zo:
 3. De knop Versturen vraagt aan Supabase om het te doen
 4. Supabase heeft de sleutel, verstuurt via Resend en meldt terug
 
+HET CERTIFICAAT
+---------------
+De PDF wordt gemaakt in datzelfde programmaatje bij Supabase en gaat
+als bijlage mee met de geslaagd-mail. A4 staand, altijd in de
+huisstijl van BHV Roden, ook bij een klantbedrijf.
+
+Het logo en de handtekening worden van de website gehaald:
+  img/cert-logo.png
+  img/cert-handtekening.png
+Wil je ze vervangen, zet dan een nieuw bestand met dezelfde naam in
+die map en push. Het moet PNG zijn met een doorzichtige achtergrond.
+
 Nodig in Supabase:
-- 08_mail.sql moet gedraaid zijn
+- 08_mail.sql en 09_certificaat.sql moeten gedraaid zijn
 - Een Edge Function met de naam "mail"
 - Bij die functie een geheim RESEND_API_KEY
 
