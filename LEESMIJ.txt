@@ -29,11 +29,15 @@ VOOR DE CURSIST
 VOOR HET BEHEER
 ---------------
 - Overzicht: bedrijven, deelnemers, bezig, geslaagd, certificaten
-- Deelnemers: voortgang per persoon, te filteren per bedrijf
+- Deelnemers: voortgang per persoon, te filteren per bedrijf. Wie
+  is uitgenodigd maar nooit een account maakte staat er ook bij, met
+  een knop om de uitnodiging nog eens te sturen
 - Uitnodigen: lijst plakken, links krijgen
 - Bedrijven: nieuw klantbedrijf met eigen huisstijl. De kleuren,
   de hoeken en het logo worden meteen in de leeromgeving van dat
-  bedrijf doorgevoerd. Het certificaat blijft altijd van BHV Roden
+  bedrijf doorgevoerd. Het certificaat blijft altijd van BHV Roden.
+  Per bedrijf een knop die alle geldige certificaten in een mail
+  naar de contactpersoon stuurt
 - Certificaten: nummers, datums en geldigheid
 - Mail: de wachtrij versturen en het logboek terugkijken
 - Systeemcontrole: klopt de database nog
@@ -61,6 +65,11 @@ Het werkt zo:
 3. Supabase heeft de sleutel, verstuurt via Resend en meldt terug
 4. Ging er iets mis, dan blijft de mail in de wachtrij staan. Op het
    tabblad Mail in het beheer zie je dat en kun je hem nazenden
+
+Een klokje bij Supabase draait elke ochtend. Dat zet herinneringen
+klaar voor wie na zeven dagen nog niet begon en voor wie twee weken
+stilligt, en verstuurt daarna de hele wachtrij. Niemand krijgt vaker
+dan eens per zeven dagen een herinnering.
 
 HET CERTIFICAAT
 ---------------

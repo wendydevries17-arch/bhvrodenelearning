@@ -157,11 +157,12 @@ a{color:var(--a)}
 .terug svg{width:13px;height:13px}
 
 /* ---------------- chips en balkjes ---------------- */
-.chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:var(--rad)}
+.chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:var(--rad)}
 .chip.af{background:var(--ok-soft);color:var(--ok)}
 .chip.bezig{background:var(--warn-soft);color:var(--warn)}
 .chip.nieuw{background:var(--surface-2);color:var(--muted)}
 .chip.mis{background:var(--err-soft);color:var(--err)}
+.chip.let{background:var(--warn-soft);color:var(--warn)}
 
 .bar{height:6px;border-radius:50px;background:var(--surface-2);overflow:hidden;display:block}
 .bar>span{display:block;height:100%;background:var(--a);border-radius:50px;transition:width .3s ease}

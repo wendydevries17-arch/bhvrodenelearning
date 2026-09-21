@@ -1192,7 +1192,7 @@
     return haalDeelnemers(org).then(function (d) {
       var beheerder = S.profiel.rol === "beheerder";
       var uit = '<div class="kop"><h1>Deel<em>nemers</em></h1>' +
-        "<p>" + (beheerder ? "Iedereen die een account heeft, over alle bedrijven heen."
+        "<p>" + (beheerder ? "Iedereen die is uitgenodigd, over alle bedrijven heen. Ook wie nog geen account heeft aangemaakt."
                            : "De deelnemers van jouw organisatie.") + "</p></div>";
 
       if (beheerder) {
@@ -1203,6 +1203,14 @@
           '<button type="button" class="btn btn-g btn-sm" id="d-ververs">Verversen</button></div>';
       }
 
+      var wacht = d.filter(function (x) { return !x.profiel_id; }).length;
+      if (wacht && beheerder) {
+        uit += '<div class="let" style="margin-bottom:18px"><b>' + wacht +
+          (wacht === 1 ? " uitnodiging is nog niet geactiveerd." : " uitnodigingen zijn nog niet geactiveerd.") +
+          "</b> Die mensen hebben de link gekregen maar nog geen account aangemaakt. " +
+          "Met de knop achteraan hun regel stuur je de uitnodiging nog eens, met een verse link van dertig dagen.</div>";
+      }
+
       if (!d.length) {
         uit += '<div class="tabel-scroll"><div class="leeg">Nog geen deelnemers.' +
           (beheerder ? " Ga naar Uitnodigen om er toe te voegen." : "") + "</div></div>";
@@ -1210,6 +1218,7 @@
         uit += '<div class="tabel-scroll"><table><thead><tr>' +
           "<th>Naam</th>" + (beheerder ? "<th>Bedrijf</th>" : "") +
           "<th>Status</th><th>Voortgang</th><th>Examen</th><th>Certificaat</th><th>Geldig tot</th>" +
+          (beheerder ? "<th></th>" : "") +
           "</tr></thead><tbody>";
         d.forEach(function (x) {
           var naam = [x.voornaam, x.achternaam].filter(Boolean).join(" ") || x.email;
@@ -1223,7 +1232,12 @@
             '<span style="font-size:11.5px;color:var(--muted)">' + af + " van " + tot + "</span></td>" +
             '<td class="num">' + (x.examen_score != null ? x.examen_score + "%" : "") + "</td>" +
             '<td class="num">' + esc(x.certificaat || "") + "</td>" +
-            '<td class="num">' + esc(datumNL(x.geldig_tot)) + "</td></tr>";
+            '<td class="num">' + esc(datumNL(x.geldig_tot)) + "</td>" +
+            (beheerder
+              ? "<td>" + (!x.profiel_id
+                  ? '<button type="button" class="btn btn-g btn-sm" data-opnieuw-mail="' + esc(x.email) + '">Nogmaals sturen</button>'
+                  : "") + "</td>"
+              : "") + "</tr>";
         });
         uit += "</tbody></table></div>";
       }
@@ -1233,9 +1247,41 @@
         kies.addEventListener("change", function () { tekenDeelnemers(kies.value || null); });
         $("#d-ververs").addEventListener("click", function () { B.deelnemers = null; tekenDeelnemers(kies.value || null); });
       }
+      $("#beheer-paneel").querySelectorAll("[data-opnieuw-mail]").forEach(function (b) {
+        b.addEventListener("click", function () { stuurUitnodigingOpnieuw(b); });
+      });
     });
   }
+  /* De uitnodiging nog eens versturen. De database verlengt de link en
+     zet de mail klaar, daarna vragen we meteen om hem te versturen. */
+  function stuurUitnodigingOpnieuw(knop) {
+    var was = knop.textContent;
+    knop.disabled = true;
+    knop.textContent = "Bezig";
+    sb.rpc("uitnodiging_opnieuw", { p_email: knop.dataset.opnieuwMail }).then(function (r) {
+      if (r.error) {
+        knop.disabled = false; knop.textContent = was;
+        toast(r.error.message);
+        return;
+      }
+      return sb.functions.invoke("mail", { body: { max: 10 } }).then(function (q) {
+        var d = q.data || {};
+        if (d.fout || d.mislukt) {
+          knop.textContent = "Staat klaar";
+          toast("Klaargezet, maar het versturen lukte nog niet. Kijk op het tabblad Mail.");
+          return;
+        }
+        knop.textContent = "Verstuurd";
+        toast("Uitnodiging opnieuw verstuurd naar " + knop.dataset.opnieuwMail);
+      });
+    }).catch(function (e) {
+      knop.disabled = false; knop.textContent = was;
+      toast(e && e.message ? e.message : "Het lukte niet");
+    });
+  }
+
   function statusChip(x) {
+    if (!x.profiel_id) return '<span class="chip let">Nog niet geactiveerd</span>';
     if (!x.inschrijving_id) return '<span class="chip nieuw">Uitgenodigd</span>';
     if (x.status === "geslaagd") return '<span class="chip af">Geslaagd</span>';
     if (x.status === "gezakt") return '<span class="chip mis">Gezakt</span>';
