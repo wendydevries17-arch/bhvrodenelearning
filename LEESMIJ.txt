@@ -35,6 +35,7 @@ VOOR HET BEHEER
   de hoeken en het logo worden meteen in de leeromgeving van dat
   bedrijf doorgevoerd. Het certificaat blijft altijd van BHV Roden
 - Certificaten: nummers, datums en geldigheid
+- Mail: de wachtrij versturen en het logboek terugkijken
 - Systeemcontrole: klopt de database nog
 
 Een contactpersoon van een klant ziet alleen de deelnemers van zijn
@@ -45,10 +46,25 @@ WAT ER NOG NIET IN ZIT
 ----------------------
 - De videos. Elke les toont nu een foto met de melding dat de
   video nog volgt. De lesstof zelf is compleet.
-- De mail. Uitnodigingen en certificaten staan wel in de wachtrij,
-  maar er gaat nog niets de deur uit. Tot die tijd kopieer je de
-  uitnodigingslinks zelf uit het beheer.
 - De PDF van het certificaat.
+
+DE MAIL
+-------
+De website verstuurt zelf geen mail, dat kan niet veilig. De sleutel
+van de maildienst zou dan in de browser staan en dan kan iedereen
+mail sturen namens jouw domein.
+
+Het werkt zo:
+1. Nodig je iemand uit of slaagt iemand, dan zet de database de mail
+   in een wachtrij
+2. Op het tabblad Mail in het beheer zie je wat er klaarstaat
+3. De knop Versturen vraagt aan Supabase om het te doen
+4. Supabase heeft de sleutel, verstuurt via Resend en meldt terug
+
+Nodig in Supabase:
+- 08_mail.sql moet gedraaid zijn
+- Een Edge Function met de naam "mail"
+- Bij die functie een geheim RESEND_API_KEY
 
 BESTANDEN
 ---------

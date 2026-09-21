@@ -1035,7 +1035,7 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
@@ -1055,6 +1055,7 @@
       if (tab === "uitnodigen")        return tekenUitnodigen();
       if (tab === "bedrijven")         return tekenBedrijven();
       if (tab === "certificaten")      return tekenCertificaten();
+      if (tab === "mail")              return tekenMail();
       if (tab === "controle")          return tekenControle();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
@@ -1476,12 +1477,133 @@
             }).join("") + "</tbody></table></div>";
         }
 
-        uit += '<div class="let" style="margin-top:20px"><b>Het bestand zelf komt nog.</b> ' +
-          "De regels hierboven zijn echt en de nummers liggen vast. Het opmaken van de PDF en het automatisch mailen " +
-          "doen we in de volgende stap, samen met de maildienst.</div>";
+        uit += '<div class="let" style="margin-top:20px"><b>De PDF komt nog.</b> ' +
+          "De regels hierboven zijn echt en de nummers liggen vast. Iedereen die slaagt krijgt zijn certificaat " +
+          "per mail, dat zie je terug op het tabblad Mail. Alleen het nette bestand om te bewaren of af te drukken " +
+          "maken we in een volgende stap.</div>";
 
         $("#beheer-paneel").innerHTML = uit;
       });
+  }
+
+  /* ---------- mail ----------
+     De sleutel van de maildienst staat bij Supabase, niet hier. Deze
+     knop vraagt alleen aan Supabase of het wil versturen. Kan iemand
+     deze pagina toch openen zonder beheerder te zijn, dan geeft de
+     database gewoon een lege wachtrij terug.
+     ------------------------------------------------------------------ */
+  var MAIL_STATUS = {
+    in_wachtrij: ["nieuw", "staat klaar"],
+    verstuurd:   ["af", "verstuurd"],
+    mislukt:     ["mis", "mislukt"]
+  };
+
+  function tekenMail() {
+    return sb.rpc("mail_logboek", { p_max: 200 }).then(function (r) {
+      if (r.error) throw r.error;
+      var lijst = r.data || [];
+      var klaar = lijst.filter(function (x) { return x.status === "in_wachtrij"; });
+      var mis   = lijst.filter(function (x) { return x.status === "mislukt"; });
+      var weg   = lijst.filter(function (x) { return x.status === "verstuurd"; });
+
+      var uit = '<div class="kop"><h1>De <em>mail</em></h1>' +
+        "<p>Uitnodigingen en certificaten worden automatisch klaargezet. Met de knop hieronder gaan ze de deur uit.</p></div>";
+
+      uit += '<div class="tegels">' +
+        tegel(klaar.length, "Staat klaar", "wacht op versturen", klaar.length ? "let" : "") +
+        tegel(weg.length, "Verstuurd", "in totaal", "ok") +
+        tegel(mis.length, "Mislukt", mis.length ? "moet je bekijken" : "niets aan de hand", mis.length ? "mis" : "") +
+        "</div>";
+
+      uit += '<div class="paneel"><div class="paneel-kop"><h2>Versturen</h2>' +
+        '<button type="button" class="btn btn-p btn-sm" id="m-stuur"' + (klaar.length ? "" : " disabled") + ">" +
+        (klaar.length ? "Verstuur " + klaar.length + " " + (klaar.length === 1 ? "mail" : "mails") : "Niets te versturen") +
+        "</button></div>" +
+        '<div class="paneel-body" id="m-uitslag">' +
+        (klaar.length
+          ? "<p>Er " + (klaar.length === 1 ? "staat " : "staan ") + klaar.length +
+            (klaar.length === 1 ? " mail" : " mails") + " klaar. Je kunt dit zo vaak doen als je wilt, " +
+            "wat al verstuurd is gaat niet nog eens weg.</p>"
+          : "<p>De wachtrij is leeg. Zodra je iemand uitnodigt of iemand slaagt voor het examen komt hier vanzelf weer iets te staan.</p>") +
+        "</div></div>";
+
+      if (!lijst.length) {
+        uit += '<div class="tabel-scroll"><div class="leeg">Nog geen mail. Nodig iemand uit, dan verschijnt hier de eerste regel.</div></div>';
+      } else {
+        uit += '<div class="paneel"><div class="paneel-kop"><h2>Het logboek</h2>' +
+          '<button type="button" class="btn btn-g btn-sm" id="m-ververs">Ververs</button></div>' +
+          '<div class="tabel-scroll"><table><thead><tr>' +
+          "<th>Aan</th><th>Soort</th><th>Status</th><th>Klaargezet</th><th>Verstuurd</th><th></th>" +
+          "</tr></thead><tbody>" +
+          lijst.map(function (x) {
+            var s = MAIL_STATUS[x.status] || ["nieuw", x.status];
+            return "<tr>" +
+              '<td class="nm">' + esc(x.aan) + "</td>" +
+              "<td>" + esc(x.soort === "certificaat" ? "Certificaat" : "Uitnodiging") + "</td>" +
+              '<td><span class="chip ' + s[0] + '">' + esc(s[1]) + "</span>" +
+              (x.fout ? '<div class="klein mis-tekst">' + esc(x.fout) + "</div>" : "") + "</td>" +
+              '<td class="num">' + esc(datumNL(x.aangemaakt_op)) + "</td>" +
+              '<td class="num">' + esc(datumNL(x.verstuurd_op)) + "</td>" +
+              "<td>" + (x.status === "mislukt"
+                ? '<button type="button" class="btn btn-g btn-sm" data-opnieuw="' + esc(x.id) + '">Opnieuw</button>'
+                : "") + "</td></tr>";
+          }).join("") + "</tbody></table></div></div>";
+      }
+
+      uit += '<div class="let" style="margin-top:20px"><b>Waar komt de mail vandaan.</b> ' +
+        "De mail gaat weg namens cursus@bhvrodenelearning.nl en antwoorden komen binnen op info@bhvroden.nl. " +
+        "Werkt de knop niet, kijk dan eerst op Systeemcontrole.</div>";
+
+      $("#beheer-paneel").innerHTML = uit;
+
+      if ($("#m-stuur")) $("#m-stuur").addEventListener("click", verstuurWachtrij);
+      if ($("#m-ververs")) $("#m-ververs").addEventListener("click", function () { naarBeheer("mail"); });
+      $("#beheer-paneel").querySelectorAll("[data-opnieuw]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          b.disabled = true;
+          sb.rpc("mail_opnieuw", { p_id: b.dataset.opnieuw }).then(function (q) {
+            if (q.error) { b.disabled = false; toast(q.error.message); return; }
+            toast("Staat weer klaar");
+            naarBeheer("mail");
+          });
+        });
+      });
+    });
+  }
+
+  function verstuurWachtrij() {
+    var k = $("#m-stuur");
+    k.disabled = true;
+    k.textContent = "Bezig met versturen";
+    $("#m-uitslag").innerHTML = '<div class="laden"><span class="tol"></span>Bezig met versturen</div>';
+
+    sb.functions.invoke("mail", { body: { max: 50 } }).then(function (r) {
+      var d = r.data || {};
+      if (r.error && !d.fout) {
+        throw new Error("De maildienst reageerde niet. Staat de functie 'mail' in Supabase en is RESEND_API_KEY ingevuld?");
+      }
+      if (d.fout) {
+        $("#m-uitslag").innerHTML =
+          '<div class="let mis"><b>' + esc(d.fout) + "</b>" + esc(d.uitleg || "") + "</div>";
+        k.disabled = false;
+        k.textContent = "Nog eens proberen";
+        return;
+      }
+      var tekst = "<p><b>" + d.verstuurd + (d.verstuurd === 1 ? " mail" : " mails") + " verstuurd.</b>";
+      if (d.mislukt) tekst += " " + d.mislukt + (d.mislukt === 1 ? " mail is" : " mails zijn") + " niet gelukt, die staan hieronder in het logboek.";
+      tekst += "</p>";
+      if (d.meldingen && d.meldingen.length) {
+        tekst += '<div class="klein mis-tekst">' + d.meldingen.map(esc).join("<br>") + "</div>";
+      }
+      $("#m-uitslag").innerHTML = tekst;
+      toast(d.verstuurd + (d.verstuurd === 1 ? " mail verstuurd" : " mails verstuurd"));
+      setTimeout(function () { naarBeheer("mail"); }, 1200);
+    }).catch(function (e) {
+      $("#m-uitslag").innerHTML =
+        '<div class="let mis"><b>Het versturen lukte niet</b>' + esc(e && e.message ? e.message : e) + "</div>";
+      k.disabled = false;
+      k.textContent = "Nog eens proberen";
+    });
   }
 
   /* ---------- systeemcontrole ---------- */

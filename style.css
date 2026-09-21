@@ -117,6 +117,9 @@ a{color:var(--a)}
 .goed b{display:block;margin-bottom:3px}
 .let{border-left:3px solid var(--warn);background:var(--warn-soft);padding:12px 15px;font-size:13.5px;color:#4A3200;border-radius:0 var(--radc) var(--radc) 0}
 .let b{display:block;margin-bottom:3px}
+.let.mis{border-left-color:var(--err);background:var(--err-soft);color:#5A1A13}
+.klein{font-size:12px;line-height:1.55;margin-top:5px}
+.mis-tekst{color:var(--err);word-break:break-word}
 
 /* ---------------- balk bovenin ---------------- */
 .melding-balk{background:#1C1C1C;color:#EDEDEA;font-size:12.5px;padding:9px 16px;text-align:center}
@@ -312,6 +315,8 @@ a{color:var(--a)}
 .tegel .s{font-size:11.5px;color:var(--muted)}
 .tegel.ok .v{color:var(--ok)}
 .tegel.acc .v{color:var(--a2)}
+.tegel.let .v{color:var(--warn)}
+.tegel.mis .v{color:var(--err)}
 
 .tabel-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);box-shadow:var(--sh-1)}
 table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
