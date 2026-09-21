@@ -291,6 +291,60 @@ a{color:var(--a)}
 .cert-hand img{height:42px;width:auto;margin-bottom:2px}
 .cert-hand .lijn{width:170px;border-bottom:1px solid #9A9A94;margin-bottom:6px}
 
+/* ---------------- beheer ---------------- */
+.tabs{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:62px;z-index:50}
+@media (max-width:620px){.tabs{top:0;position:static}}
+.tabs-in{max-width:1180px;margin:0 auto;padding:0 18px;display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tabs button{background:none;border:0;border-bottom:2.5px solid transparent;padding:13px 12px;font-size:13.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button[aria-current="true"]{color:var(--ink);border-bottom-color:var(--a)}
+
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.split>*{min-width:0}
+@media (max-width:900px){.split{grid-template-columns:1fr}}
+
+.tegels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr));gap:14px;margin-bottom:24px}
+.tegels>*{min-width:0}
+.tegel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);padding:16px 18px;display:flex;flex-direction:column;gap:3px;box-shadow:var(--sh-1)}
+.tegel .k{font-size:12px;color:var(--muted);font-weight:600}
+.tegel .v{font-family:var(--fh);font-size:30px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.tegel .s{font-size:11.5px;color:var(--muted)}
+.tegel.ok .v{color:var(--ok)}
+.tegel.acc .v{color:var(--a2)}
+
+.tabel-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);box-shadow:var(--sh-1)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+th{text-align:left;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 15px;border-bottom:1px solid var(--line);background:var(--surface-2);white-space:nowrap}
+td{padding:11px 15px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--ink-2)}
+tr:last-child td{border-bottom:0}
+td.nm{color:var(--ink);font-weight:600;white-space:nowrap}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+td .bar{width:92px}
+.leeg{padding:30px 18px;text-align:center;color:var(--muted);font-size:14px}
+
+.knoppenrij{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.kies{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--radc);padding:9px 12px;font-size:15px;color:var(--ink);min-width:0;max-width:100%}
+
+.plak{background:var(--ground);border:1px solid var(--line-2);border-radius:var(--radc);padding:12px;font-size:14px;line-height:1.6;resize:vertical;color:var(--ink);width:100%;min-height:150px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+.kleurveld{display:flex;gap:10px;align-items:center}
+.kleurveld input[type=color]{width:46px;height:40px;padding:2px;border:1px solid var(--line-2);border-radius:var(--radc);background:var(--surface);flex:none}
+.kleurveld input[type=text]{flex:1;min-width:0}
+
+.voorbeeld{border:1px solid var(--line);border-radius:var(--radc);overflow:hidden;box-shadow:var(--sh-1)}
+.voorbeeld .vb-balk{padding:14px 16px;display:flex;align-items:center;gap:11px;color:#fff}
+.voorbeeld .vb-naam{font-family:var(--fh);font-weight:700;font-size:14px}
+.voorbeeld .vb-body{padding:16px;background:var(--surface);display:flex;flex-direction:column;gap:11px}
+.voorbeeld .vb-knop{display:inline-block;padding:9px 18px;color:#fff;font-family:var(--fh);font-size:13px;font-weight:600;align-self:flex-start}
+
+.link-lijst{display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto}
+.link-rij{display:flex;gap:10px;align-items:center;background:var(--ground);border:1px solid var(--line);border-radius:var(--radc);padding:9px 12px;font-size:13px}
+.link-rij .adres{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--muted)}
+.link-rij .wie{font-weight:600;color:var(--ink);white-space:nowrap}
+.mini{border:1px solid var(--line-2);background:var(--surface);border-radius:var(--rad);padding:5px 13px;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;flex:none}
+.mini:hover{background:var(--surface-2)}
+.mini.klaar{border-color:var(--ok);color:var(--ok)}
+
 /* ---------------- diversen ---------------- */
 .laden{display:flex;gap:11px;align-items:center;color:var(--muted);font-size:13.5px;padding:14px 0}
 .tol{width:15px;height:15px;border:2px solid var(--line-2);border-top-color:var(--a);border-radius:50%;animation:draai .7s linear infinite;flex:none}

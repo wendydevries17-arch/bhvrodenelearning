@@ -12,8 +12,53 @@
 </head>
 <body>
 
+<!-- ============ AANMELDEN MET EEN UITNODIGING ============ -->
+<div id="scherm-aanmelden" hidden>
+  <div class="wrap">
+    <div class="auth">
+      <div class="auth-foto">
+        <img src="img/blussen-vrouw.jpg" alt="">
+        <span class="waas"></span>
+        <div class="bij">
+          <h3>Welkom bij<br>BHV Roden</h3>
+          <p>Nog een wachtwoord kiezen en je kunt beginnen. De cursus duurt ongeveer zes uur en je kunt tussendoor stoppen.</p>
+        </div>
+      </div>
+      <form class="auth-form" id="aanmeld-form" autocomplete="on">
+        <img class="logo" src="img/logo-bhvroden.jpg" alt="BHV Roden">
+        <h2>Account aanmaken</h2>
+        <div id="aanmeld-intro"><div class="laden"><span class="tol"></span>Bezig met ophalen van je uitnodiging</div></div>
+        <div id="aanmeld-velden" hidden>
+          <div class="veld-rij">
+            <div class="veld">
+              <label for="aa-voor">Voornaam</label>
+              <input id="aa-voor" type="text" autocomplete="given-name" required>
+            </div>
+            <div class="veld">
+              <label for="aa-achter">Achternaam</label>
+              <input id="aa-achter" type="text" autocomplete="family-name" required>
+            </div>
+          </div>
+          <div class="veld">
+            <label for="aa-gb">Geboortedatum</label>
+            <input id="aa-gb" type="date" required min="1920-01-01">
+            <span class="hint">Komt op je certificaat te staan.</span>
+          </div>
+          <div class="veld">
+            <label for="aa-pw">Kies een wachtwoord</label>
+            <input id="aa-pw" type="password" autocomplete="new-password" required minlength="8">
+            <span class="hint">Minimaal acht tekens.</span>
+          </div>
+          <div class="fout" id="aanmeld-fout" hidden></div>
+          <button type="submit" class="btn btn-a btn-blok" id="aanmeld-knop">Account aanmaken</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <!-- ============ INLOGGEN ============ -->
-<div id="scherm-login">
+<div id="scherm-login" hidden>
   <div class="wrap">
     <div class="auth">
       <div class="auth-foto">
@@ -58,8 +103,8 @@
     <img src="img/logo-bhvroden.jpg" alt="BHV Roden">
     <span class="naam">BHV Roden<span>Leeromgeving</span></span>
     <span class="rechts">
-      <button type="button" class="knop-licht" id="nav-overzicht" hidden>Overzicht</button>
-      <button type="button" class="knop-licht" id="nav-controle" hidden>Systeemcontrole</button>
+      <button type="button" class="knop-licht" id="nav-overzicht" hidden>Mijn cursus</button>
+      <button type="button" class="knop-licht" id="nav-beheer" hidden>Beheer</button>
       <span class="wie" id="wie"></span>
       <button type="button" class="knop-licht" id="uitloggen">Uitloggen</button>
     </span>
@@ -156,24 +201,19 @@
     <div id="toets-paneel"></div>
   </div>
 
-  <!-- ---------- SYSTEEMCONTROLE ---------- -->
-  <div class="wrap" id="view-controle" hidden>
-    <div class="kop">
-      <h1>Systeem<em>controle</em></h1>
-      <p>Deze pagina praat rechtstreeks met de database en laat zien of alles klaarstaat. Alleen zichtbaar voor beheerders.</p>
-    </div>
-    <div class="paneel">
-      <div class="paneel-kop"><h2>Jouw account</h2></div>
-      <div class="paneel-body" id="c-account"></div>
-    </div>
-    <div class="paneel">
-      <div class="paneel-kop">
-        <h2>Wat er in de database staat</h2>
-        <button type="button" class="btn btn-g btn-sm" id="c-opnieuw">Opnieuw controleren</button>
+  <!-- ---------- BEHEER ---------- -->
+  <div id="view-beheer" hidden>
+    <nav class="tabs">
+      <div class="tabs-in" id="beheer-tabs">
+        <button type="button" data-tab="overzicht" aria-current="true">Overzicht</button>
+        <button type="button" data-tab="deelnemers">Deelnemers</button>
+        <button type="button" data-tab="uitnodigen">Uitnodigen</button>
+        <button type="button" data-tab="bedrijven">Bedrijven</button>
+        <button type="button" data-tab="certificaten">Certificaten</button>
+        <button type="button" data-tab="controle">Systeemcontrole</button>
       </div>
-      <div class="paneel-body" id="c-inhoud"></div>
-    </div>
-    <div id="c-uitslag"></div>
+    </nav>
+    <div class="wrap" id="beheer-paneel"></div>
   </div>
 
 </div>

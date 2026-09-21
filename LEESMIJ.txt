@@ -1,54 +1,69 @@
-BHV RODEN LEEROMGEVING, STAP 10
-===============================
-De echte cursistkant. Dit is geen controlepagina meer.
+BHV RODEN LEEROMGEVING
+======================
+De leeromgeving van BHV Roden. Draait op bhvrodenelearning.nl.
 
-WAT ERIN ZIT
-------------
+HOE DIT LIVE KOMT
+-----------------
+Deze map is gekoppeld aan GitHub en GitHub is gekoppeld aan Netlify.
+Elke push zet de site binnen een minuut live.
+
+Dus NIET meer handmatig een map in Netlify slepen.
+
+De werkwijze:
+1. Claude past de bestanden in deze map aan
+2. Jij opent GitHub Desktop en ziet precies wat er veranderd is
+3. Commit, dan Push origin
+4. Netlify zet het live
+
+VOOR DE CURSIST
+---------------
+- Aanmelden via de uitnodigingslink, met eigen wachtwoord
 - Inloggen
-- Profiel aanvullen: voornaam, achternaam, geboortedatum.
-  Die drie komen letterlijk op het certificaat.
-- Dashboard met je voortgang per module
-- Alle dertien lessen met de echte lesteksten uit de database
+- Dashboard met voortgang per module
+- Dertien lessen met de lesteksten uit de database
 - Evaluatievragen met directe uitleg bij goed en fout
 - Kennistoets per module
 - Eindexamen, vragen worden geloot uit de examenbank
 - Certificaat op het scherm na het slagen
-- Systeemcontrole, alleen zichtbaar voor beheerders
 
-Nakijken gebeurt in de database, niet in de browser. Het juiste
-antwoord komt pas binnen nadat er is ingeleverd. Bij het examen
-worden de vragen aan de databasekant geloot, dus niemand krijgt
-dezelfde set.
+VOOR HET BEHEER
+---------------
+- Overzicht: bedrijven, deelnemers, bezig, geslaagd, certificaten
+- Deelnemers: voortgang per persoon, te filteren per bedrijf
+- Uitnodigen: lijst plakken, links krijgen
+- Bedrijven: nieuw klantbedrijf met eigen huisstijl
+- Certificaten: nummers, datums en geldigheid
+- Systeemcontrole: klopt de database nog
+
+Een contactpersoon van een klant ziet alleen de deelnemers van zijn
+eigen bedrijf en kan verder niets. Dat wordt in de database zelf
+afgedwongen, niet met een verborgen knop.
 
 WAT ER NOG NIET IN ZIT
 ----------------------
-- De video's. Elke les toont nu een foto met de melding dat de
+- De videos. Elke les toont nu een foto met de melding dat de
   video nog volgt. De lesstof zelf is compleet.
-- Het certificaat per mail. Je ziet hem nu op het scherm.
-- De beheeromgeving: deelnemers importeren, klanten aanmaken,
-  certificaten downloaden. Dat is de volgende stap.
-
-OP NETLIFY ZETTEN
------------------
-1. Ga naar je site bhvrodenelearning.netlify.app
-2. Klik op Deploys
-3. Sleep deze map in het vak "Drag and drop"
-   Dus niet een nieuwe site aanmaken, gewoon over de oude heen.
-
-WAT JE ZOU MOETEN ZIEN
-----------------------
-Log in met wendy@getfitgirl.nl of info@bhvroden.nl.
-De eerste keer vraagt hij om je geboortedatum. Daarna sta je op
-het dashboard met vier modules en het eindexamen.
-
-Wil je de hele route testen, loop dan alle dertien lessen door.
-Sneller kan ook: klik in het beheer op Systeemcontrole om te zien
-of de database klopt.
+- De mail. Uitnodigingen en certificaten staan wel in de wachtrij,
+  maar er gaat nog niets de deur uit. Tot die tijd kopieer je de
+  uitnodigingslinks zelf uit het beheer.
+- De PDF van het certificaat.
 
 BESTANDEN
 ---------
 index.html   de pagina
 style.css    de opmaak
-config.js    het adres en de sleutel van jouw Supabase
-app.js       de hele leeromgeving
-img/         logo, handtekening en de lesfoto's
+config.js    het adres en de publishable key van Supabase
+app.js       de hele leeromgeving en het beheer
+img/         logo, handtekening en de lesfotos
+_redirects   nodig voor Netlify
+
+SLEUTELS
+--------
+In config.js staat de publishable key. Die hoort in de browser en
+mag gewoon in deze repository staan.
+
+Deze drie komen hier NOOIT in, die gaan in Netlify onder
+Environment variables:
+- de service_role key van Supabase
+- het databasewachtwoord
+- de API key van de maildienst

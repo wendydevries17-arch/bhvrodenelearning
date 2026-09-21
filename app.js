@@ -67,9 +67,21 @@
     setTimeout(function () { d.remove(); }, 2800);
   }
   function toon(id) {
-    ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-controle"]
+    ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-beheer"]
       .forEach(function (v) { $("#" + v).hidden = (v !== id); });
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  }
+  function kopieer(tekst, knop) {
+    var klaar = function () {
+      if (!knop) return;
+      var oud = knop.textContent;
+      knop.textContent = "Gekopieerd";
+      knop.classList.add("klaar");
+      setTimeout(function () { knop.textContent = oud; knop.classList.remove("klaar"); }, 2200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tekst).then(klaar).catch(function () { toast("Kopieren lukte niet"); });
+    } else toast("Kopieren lukt niet in deze browser");
   }
 
   /* =====================================================================
@@ -127,20 +139,134 @@
     sb.auth.signOut().then(function () { location.reload(); });
   });
   $("#nav-overzicht").addEventListener("click", function () { naarDashboard(); });
-  $("#nav-controle").addEventListener("click", function () { toon("view-controle"); controleer(); });
-  $("#c-opnieuw").addEventListener("click", function () { controleer(); });
+  $("#nav-beheer").addEventListener("click", function () { naarBeheer("overzicht"); });
   $("#les-terug").addEventListener("click", function () { naarDashboard(); });
   $("#toets-terug").addEventListener("click", function () { naarDashboard(); });
-
-  sb.auth.getSession().then(function (res) {
-    if (res.data && res.data.session) naarApp();
+  $("#beheer-tabs").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-tab]");
+    if (b) naarBeheer(b.dataset.tab);
   });
+
+  /* Een uitnodigingslink gaat voor op alles. */
+  var TOKEN = (new URLSearchParams(location.search)).get("token");
+  if (TOKEN) {
+    startAanmelden(TOKEN);
+  } else {
+    sb.auth.getSession().then(function (res) {
+      if (res.data && res.data.session) naarApp();
+      else $("#scherm-login").hidden = false;
+    });
+  }
 
   function naarApp() {
     $("#scherm-login").hidden = true;
+    $("#scherm-aanmelden").hidden = true;
     $("#scherm-app").hidden = false;
     toon("view-laden");
     laadAlles();
+  }
+
+  /* =====================================================================
+     AANMELDEN MET EEN UITNODIGING
+     ===================================================================== */
+  function startAanmelden(token) {
+    $("#scherm-aanmelden").hidden = false;
+    sb.rpc("bekijk_uitnodiging", { p_token: token }).then(function (r) {
+      var u = r.data;
+      if (r.error || !u || !u.geldig) {
+        var reden = (!u || !u.email) ? "Deze link hoort bij geen enkele uitnodiging. Controleer of je hem helemaal hebt gekopieerd."
+          : u.gebruikt ? "Deze uitnodiging is al gebruikt. Log gewoon in met je e-mailadres en wachtwoord."
+          : u.verlopen ? "Deze uitnodiging is verlopen. Vraag een nieuwe aan bij je werkgever."
+          : "Deze link werkt niet meer.";
+        $("#aanmeld-intro").innerHTML =
+          '<div class="let"><b>Deze link werkt niet</b>' + esc(reden) + "</div>" +
+          '<div class="btn-row" style="margin-top:14px"><button type="button" class="btn btn-g" id="aa-naar-login">Naar het inlogscherm</button></div>';
+        $("#aa-naar-login").addEventListener("click", function () {
+          $("#scherm-aanmelden").hidden = true;
+          $("#scherm-login").hidden = false;
+        });
+        return;
+      }
+      $("#aanmeld-intro").innerHTML =
+        '<p class="lead">Je bent door <b>' + esc(u.bedrijf || "je werkgever") + "</b> aangemeld voor " +
+        "<b>" + esc(u.cursus || "de BHV e-learning") + "</b>.</p>" +
+        '<div class="goed" style="margin-top:10px"><b>' + esc(u.email) + "</b>" +
+        "Met dit adres log je straks in." +
+        (u.deadline ? " Afronden voor " + esc(datumNL(u.deadline)) + "." : "") + "</div>";
+      $("#aanmeld-velden").hidden = false;
+      $("#aa-voor").value = u.voornaam || "";
+      $("#aa-achter").value = u.achternaam || "";
+      $("#aa-gb").value = u.geboortedatum || "";
+      $("#aa-gb").max = new Date().toISOString().slice(0, 10);
+      AANMELD = { token: token, email: u.email };
+    });
+  }
+  var AANMELD = null;
+
+  $("#aanmeld-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!AANMELD) return;
+    var knop = $("#aanmeld-knop"), fout = $("#aanmeld-fout");
+    fout.hidden = true;
+    knop.disabled = true; knop.textContent = "Bezig met aanmaken";
+
+    var mislukt = function (titel, tekst) {
+      knop.disabled = false; knop.textContent = "Account aanmaken";
+      fout.hidden = false;
+      fout.innerHTML = "<b>" + titel + "</b>" + tekst;
+    };
+
+    sb.auth.signUp({
+      email: AANMELD.email,
+      password: $("#aa-pw").value,
+      options: {
+        data: {
+          voornaam: $("#aa-voor").value.trim(),
+          achternaam: $("#aa-achter").value.trim(),
+          geboortedatum: $("#aa-gb").value
+        }
+      }
+    }).then(function (res) {
+      if (res.error) {
+        var m = (res.error.message || "").toLowerCase();
+        if (m.indexOf("already registered") > -1 || m.indexOf("already been registered") > -1) {
+          /* Account bestond al: gewoon inloggen en daarna koppelen. */
+          return sb.auth.signInWithPassword({ email: AANMELD.email, password: $("#aa-pw").value })
+            .then(function (r2) {
+              if (r2.error) {
+                mislukt("Dit account bestaat al",
+                  "Er is al een account op " + esc(AANMELD.email) + ", maar dit wachtwoord klopt er niet bij. Ga naar het inlogscherm, of vraag een nieuw wachtwoord aan via info@bhvroden.nl.");
+                return null;
+              }
+              return koppelEnStart();
+            });
+        }
+        mislukt("Aanmaken mislukt", esc(res.error.message));
+        return null;
+      }
+      if (!res.data || !res.data.session) {
+        mislukt("Nog even bevestigen",
+          "Je account is aangemaakt, maar Supabase wacht op een bevestiging per mail. Zet in Supabase onder Authentication de optie Confirm email uit, of bevestig het account daar handmatig.");
+        return null;
+      }
+      return koppelEnStart();
+    }).catch(function (err) {
+      mislukt("Geen verbinding", esc(err && err.message ? err.message : err));
+    });
+  });
+
+  function koppelEnStart() {
+    return sb.rpc("wissel_uitnodiging_in", { p_token: AANMELD.token }).then(function (r) {
+      if (r.error) {
+        $("#aanmeld-fout").hidden = false;
+        $("#aanmeld-fout").innerHTML = "<b>Koppelen mislukt</b>" + esc(r.error.message);
+        $("#aanmeld-knop").disabled = false;
+        $("#aanmeld-knop").textContent = "Account aanmaken";
+        return;
+      }
+      history.replaceState(null, "", location.pathname);
+      naarApp();
+    });
   }
 
   /* =====================================================================
@@ -175,7 +301,10 @@
           var naam = [S.profiel.voornaam, S.profiel.achternaam].filter(Boolean).join(" ");
           var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "";
           $("#wie").innerHTML = esc(naam || S.profiel.email) + "<span>" + esc(org) + "</span>";
-          $("#nav-controle").hidden = S.profiel.rol !== "beheerder";
+          $("#nav-beheer").hidden = (S.profiel.rol !== "beheerder" && S.profiel.rol !== "contactpersoon");
+
+          /* Een contactpersoon volgt zelf geen cursus, die gaat direct naar het beheer. */
+          if (S.profiel.rol === "contactpersoon") { naarBeheer("deelnemers"); return null; }
 
           if (!S.profiel.voornaam || !S.profiel.achternaam || !S.profiel.geboortedatum) {
             $("#pf-voor").value = S.profiel.voornaam || "";
@@ -794,9 +923,455 @@
     $("#cert-terug").addEventListener("click", naarDashboard);
   }
 
+
   /* =====================================================================
-     SYSTEEMCONTROLE, alleen voor beheerders
+     BEHEER
+     Alles wat hier gebeurt wordt door de database nog eens gecontroleerd.
+     Een contactpersoon die deze schermen zou forceren krijgt gewoon
+     lege lijsten terug, want ziet_organisatie() beslist, niet de knop.
      ===================================================================== */
+  var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
+
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1 };
+
+  function naarBeheer(tab) {
+    if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
+    B.tab = tab;
+    toon("view-beheer");
+    $("#nav-overzicht").hidden = S.profiel.rol === "contactpersoon";
+    $("#beheer-tabs").querySelectorAll("button").forEach(function (b) {
+      var mag = !(ALLEEN_BEHEER[b.dataset.tab] && S.profiel.rol !== "beheerder");
+      b.hidden = !mag;
+      b.setAttribute("aria-current", b.dataset.tab === tab ? "true" : "false");
+    });
+    $("#beheer-paneel").innerHTML = '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>';
+
+    basisgegevens().then(function () {
+      if (tab === "overzicht")         return tekenOverzicht();
+      if (tab === "deelnemers")        return tekenDeelnemers();
+      if (tab === "uitnodigen")        return tekenUitnodigen();
+      if (tab === "bedrijven")         return tekenBedrijven();
+      if (tab === "certificaten")      return tekenCertificaten();
+      if (tab === "controle")          return tekenControle();
+    }).catch(function (e) {
+      $("#beheer-paneel").innerHTML =
+        '<div class="let"><b>Er ging iets mis</b>' + esc(e && e.message ? e.message : e) +
+        ". Staat stap 10 nog niet in Supabase, draai dan <b>07_beheer.sql</b>.</div>";
+    });
+  }
+
+  function basisgegevens() {
+    if (B.organisaties && B.cursussen) return Promise.resolve();
+    return Promise.all([
+      sb.from("organisaties").select("id, naam, slug, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url, contactpersoon_naam, contactpersoon_email, actief, aangemaakt_op").order("naam"),
+      sb.from("cursussen").select("id, titel, organisatie_id, actief").eq("actief", true).order("titel")
+    ]).then(function (r) {
+      r.forEach(function (x) { if (x.error) throw x.error; });
+      B.organisaties = r[0].data || [];
+      B.cursussen = r[1].data || [];
+    });
+  }
+
+  function haalDeelnemers(org) {
+    return sb.rpc("deelnemers", { p_org: org || null }).then(function (r) {
+      if (r.error) throw r.error;
+      B.deelnemers = r.data || [];
+      return B.deelnemers;
+    });
+  }
+
+  function orgNaam(id) {
+    var o = (B.organisaties || []).find(function (x) { return x.id === id; });
+    return o ? o.naam : "";
+  }
+
+  /* ---------- overzicht ---------- */
+  function tekenOverzicht() {
+    return Promise.all([
+      haalDeelnemers(null),
+      sb.from("certificaten").select("id, nummer, geldig_tot", { count: "exact" }).is("ingetrokken_op", null),
+      sb.from("uitnodigingen").select("id", { count: "exact", head: true }).is("gebruikt_op", null)
+    ]).then(function (r) {
+      var d = B.deelnemers;
+      var certs = r[1].data || [];
+      var openUit = r[2].count || 0;
+      var vandaag = new Date().toISOString().slice(0, 10);
+      var verloopt = certs.filter(function (c) {
+        return c.geldig_tot && c.geldig_tot > vandaag &&
+               (new Date(c.geldig_tot) - new Date()) / 86400000 < 60;
+      }).length;
+
+      var bezig = d.filter(function (x) { return x.status === "bezig"; }).length;
+      var klaar = d.filter(function (x) { return x.status === "geslaagd"; }).length;
+      var nietBegonnen = d.filter(function (x) { return !x.inschrijving_id || x.lessen_af === 0; }).length;
+      var bedrijven = (B.organisaties || []).filter(function (o) { return !o.is_eigenaar; }).length;
+
+      var uit = '<div class="kop"><h1>Beheer<em>overzicht</em></h1>' +
+        "<p>De stand van zaken over alle bedrijven heen.</p></div>";
+
+      uit += '<div class="tegels">' +
+        tegel(bedrijven, "Klantbedrijven", "naast BHV Roden zelf") +
+        tegel(d.length, "Deelnemers", "met een account") +
+        tegel(bezig, "Bezig", "onderweg in de cursus", "acc") +
+        tegel(klaar, "Geslaagd", "theorie afgerond", "ok") +
+        tegel(openUit, "Uitnodigingen open", "nog niet gebruikt") +
+        tegel(certs.length, "Certificaten", verloopt ? verloopt + " verlopen binnen 60 dagen" : "geldig") +
+        "</div>";
+
+      if (nietBegonnen) {
+        uit += '<div class="let"><b>' + nietBegonnen + " deelnemer" + (nietBegonnen === 1 ? "" : "s") +
+          " nog niet begonnen</b>Zij hebben wel een account maar nog geen les afgerond. " +
+          "Zodra de mailkoppeling aanstaat krijgen ze hier vanzelf een herinnering over.</div>";
+      }
+
+      uit += '<div class="paneel" style="margin-top:22px"><div class="paneel-kop"><h2>Per bedrijf</h2></div>';
+      var perOrg = {};
+      d.forEach(function (x) {
+        var o = perOrg[x.organisatie_id] = perOrg[x.organisatie_id] || { naam: x.organisatie, n: 0, klaar: 0 };
+        o.n++; if (x.status === "geslaagd") o.klaar++;
+      });
+      var rijen = Object.keys(perOrg);
+      if (!rijen.length) {
+        uit += '<div class="leeg">Er staan nog geen deelnemers in. Ga naar Uitnodigen om te beginnen.</div>';
+      } else {
+        uit += '<div class="tabel-scroll" style="border:0;box-shadow:none"><table><thead><tr>' +
+          "<th>Bedrijf</th><th>Deelnemers</th><th>Geslaagd</th><th>Voortgang</th></tr></thead><tbody>";
+        rijen.forEach(function (k) {
+          var o = perOrg[k];
+          var pct = o.n ? Math.round(o.klaar * 100 / o.n) : 0;
+          uit += "<tr><td class=\"nm\">" + esc(o.naam) + "</td><td class=\"num\">" + o.n +
+            "</td><td class=\"num\">" + o.klaar + '</td><td><span class="bar"><span style="width:' +
+            pct + '%"></span></span></td></tr>';
+        });
+        uit += "</tbody></table></div>";
+      }
+      uit += "</div>";
+
+      $("#beheer-paneel").innerHTML = uit;
+    });
+  }
+  function tegel(v, k, s, kl) {
+    return '<div class="tegel' + (kl ? " " + kl : "") + '"><span class="k">' + esc(k) +
+      '</span><span class="v">' + v + '</span><span class="s">' + esc(s || "") + "</span></div>";
+  }
+
+  /* ---------- deelnemers ---------- */
+  function tekenDeelnemers(org) {
+    return haalDeelnemers(org).then(function (d) {
+      var beheerder = S.profiel.rol === "beheerder";
+      var uit = '<div class="kop"><h1>Deel<em>nemers</em></h1>' +
+        "<p>" + (beheerder ? "Iedereen die een account heeft, over alle bedrijven heen."
+                           : "De deelnemers van jouw organisatie.") + "</p></div>";
+
+      if (beheerder) {
+        uit += '<div class="knoppenrij"><select class="kies" id="d-org"><option value="">Alle bedrijven</option>' +
+          B.organisaties.map(function (o) {
+            return '<option value="' + o.id + '"' + (o.id === org ? " selected" : "") + ">" + esc(o.naam) + "</option>";
+          }).join("") + "</select>" +
+          '<button type="button" class="btn btn-g btn-sm" id="d-ververs">Verversen</button></div>';
+      }
+
+      if (!d.length) {
+        uit += '<div class="tabel-scroll"><div class="leeg">Nog geen deelnemers.' +
+          (beheerder ? " Ga naar Uitnodigen om er toe te voegen." : "") + "</div></div>";
+      } else {
+        uit += '<div class="tabel-scroll"><table><thead><tr>' +
+          "<th>Naam</th>" + (beheerder ? "<th>Bedrijf</th>" : "") +
+          "<th>Status</th><th>Voortgang</th><th>Examen</th><th>Certificaat</th><th>Geldig tot</th>" +
+          "</tr></thead><tbody>";
+        d.forEach(function (x) {
+          var naam = [x.voornaam, x.achternaam].filter(Boolean).join(" ") || x.email;
+          var tot = x.lessen_totaal || 0, af = x.lessen_af || 0;
+          var pct = tot ? Math.round(af * 100 / tot) : 0;
+          uit += "<tr>" +
+            '<td class="nm">' + esc(naam) + "<br><span style=\"font-weight:400;color:var(--muted);font-size:12px\">" + esc(x.email) + "</span></td>" +
+            (beheerder ? "<td>" + esc(x.organisatie || "") + "</td>" : "") +
+            "<td>" + statusChip(x) + "</td>" +
+            '<td><span class="bar"><span style="width:' + pct + '%"></span></span>' +
+            '<span style="font-size:11.5px;color:var(--muted)">' + af + " van " + tot + "</span></td>" +
+            '<td class="num">' + (x.examen_score != null ? x.examen_score + "%" : "") + "</td>" +
+            '<td class="num">' + esc(x.certificaat || "") + "</td>" +
+            '<td class="num">' + esc(datumNL(x.geldig_tot)) + "</td></tr>";
+        });
+        uit += "</tbody></table></div>";
+      }
+      $("#beheer-paneel").innerHTML = uit;
+      var kies = $("#d-org");
+      if (kies) {
+        kies.addEventListener("change", function () { tekenDeelnemers(kies.value || null); });
+        $("#d-ververs").addEventListener("click", function () { B.deelnemers = null; tekenDeelnemers(kies.value || null); });
+      }
+    });
+  }
+  function statusChip(x) {
+    if (!x.inschrijving_id) return '<span class="chip nieuw">Uitgenodigd</span>';
+    if (x.status === "geslaagd") return '<span class="chip af">Geslaagd</span>';
+    if (x.status === "gezakt") return '<span class="chip mis">Gezakt</span>';
+    if (x.lessen_af > 0) return '<span class="chip bezig">Bezig</span>';
+    return '<span class="chip nieuw">Nog niet begonnen</span>';
+  }
+
+  /* ---------- uitnodigen ---------- */
+  function tekenUitnodigen() {
+    var uit = '<div class="kop"><h1>Deelnemers <em>uitnodigen</em></h1>' +
+      "<p>Plak hier de lijst van je klant. Eén persoon per regel. Het e-mailadres is het enige dat verplicht is.</p></div>";
+
+    uit += '<div class="split"><div class="blok">' +
+      '<div class="veld"><label for="u-org">Bedrijf</label><select class="kies" id="u-org">' +
+      B.organisaties.map(function (o) { return '<option value="' + o.id + '">' + esc(o.naam) + "</option>"; }).join("") +
+      "</select></div>" +
+      '<div class="veld"><label for="u-cursus">Cursus</label><select class="kies" id="u-cursus">' +
+      B.cursussen.map(function (c) { return '<option value="' + c.id + '">' + esc(c.titel) + "</option>"; }).join("") +
+      "</select></div>" +
+      '<div class="veld"><label for="u-deadline">Afronden voor (mag leeg)</label>' +
+      '<input class="kies" id="u-deadline" type="date"></div>' +
+      '<div class="veld"><label for="u-plak">De lijst</label>' +
+      '<textarea class="plak" id="u-plak" spellcheck="false" placeholder="jan@bedrijf.nl; Jan; de Boer\nmarie@bedrijf.nl, Marie, Visser\npiet@bedrijf.nl"></textarea>' +
+      '<span class="hint">Scheiden met een puntkomma, komma of tab. Kopieren uit Excel werkt ook.</span></div>' +
+      '<div class="fout" id="u-fout" hidden></div>' +
+      '<div class="btn-row"><button type="button" class="btn btn-a" id="u-versturen">Uitnodigingen aanmaken</button>' +
+      '<span class="lead" id="u-stand"></span></div>' +
+      "</div>" +
+      '<div class="blok" id="u-uitkomst"><div class="blok-kop"><h3>Wat er gebeurt</h3></div>' +
+      '<p class="lead">Voor elke persoon wordt een uitnodiging met een eigen link aangemaakt, dertig dagen geldig. ' +
+      "De mail gaat pas automatisch de deur uit als de mailkoppeling aanstaat. Tot die tijd krijg je hier de links te zien " +
+      "en kun je ze zelf versturen of doorgeven aan de contactpersoon.</p></div></div>";
+
+    $("#beheer-paneel").innerHTML = uit;
+    $("#u-versturen").addEventListener("click", verstuurUitnodigingen);
+    return Promise.resolve();
+  }
+
+  function leesLijst(tekst) {
+    var mensen = [], fout = [];
+    tekst.split(/\r?\n/).forEach(function (regel) {
+      var r = regel.trim();
+      if (!r) return;
+      var delen = r.split(/[;,\t]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      var mail = delen.find(function (x) { return x.indexOf("@") > 0; });
+      if (!mail) { fout.push(r); return; }
+      var rest = delen.filter(function (x) { return x !== mail; });
+      mensen.push({ email: mail.toLowerCase(), voornaam: rest[0] || null, achternaam: rest.slice(1).join(" ") || null });
+    });
+    return { mensen: mensen, fout: fout };
+  }
+
+  function verstuurUitnodigingen() {
+    var knop = $("#u-versturen"), fout = $("#u-fout");
+    fout.hidden = true;
+    var lijst = leesLijst($("#u-plak").value);
+    if (!lijst.mensen.length) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>Geen e-mailadressen gevonden</b>Zet op elke regel minstens een e-mailadres.";
+      return;
+    }
+    if (lijst.fout.length) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>" + lijst.fout.length + " regel" + (lijst.fout.length === 1 ? "" : "s") +
+        " zonder e-mailadres</b>Die sla ik over: " + esc(lijst.fout.slice(0, 3).join(" / ")) +
+        (lijst.fout.length > 3 ? " en meer" : "");
+    }
+    knop.disabled = true; knop.textContent = "Bezig";
+    $("#u-stand").textContent = lijst.mensen.length + " regels verwerken";
+
+    sb.rpc("nodig_uit", {
+      p_organisatie: $("#u-org").value,
+      p_cursus: $("#u-cursus").value,
+      p_mensen: lijst.mensen,
+      p_deadline: $("#u-deadline").value || null
+    }).then(function (r) {
+      knop.disabled = false; knop.textContent = "Uitnodigingen aanmaken";
+      $("#u-stand").textContent = "";
+      if (r.error) {
+        fout.hidden = false;
+        fout.innerHTML = "<b>Aanmaken mislukt</b>" + esc(r.error.message);
+        return;
+      }
+      B.deelnemers = null;
+      toonLinks(r.data);
+    });
+  }
+
+  function toonLinks(u) {
+    var basis = location.origin + location.pathname;
+    var regels = (u.regels || []).filter(function (x) { return x.token; });
+    var uit = '<div class="blok-kop"><h3>Klaar</h3></div>' +
+      '<div class="goed"><b>' + u.nieuw + " nieuw, " + u.bestond + " bijgewerkt, " + u.overgeslagen + " overgeslagen</b>" +
+      "Overgeslagen betekent dat die persoon al voor deze cursus staat ingeschreven.</div>";
+
+    if (regels.length) {
+      uit += '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="u-kopieer-alles">Alle links kopieren</button></div>' +
+        '<div class="link-lijst">' + regels.map(function (x) {
+          var link = basis + "?token=" + encodeURIComponent(x.token);
+          return '<div class="link-rij"><span class="wie">' + esc(x.email) + "</span>" +
+            '<span class="adres">' + esc(link) + "</span>" +
+            '<button type="button" class="mini" data-link="' + esc(link) + '">Kopieer</button></div>';
+        }).join("") + "</div>" +
+        '<div class="let"><b>Bewaar deze links goed.</b> Wie de link heeft kan het account aanmaken, ' +
+        "al werkt hij alleen voor het e-mailadres waar hij bij hoort. Zodra de mailkoppeling aanstaat " +
+        "gaan deze links vanzelf de deur uit en hoef je hier niets meer mee te doen.</div>";
+    }
+
+    $("#u-uitkomst").innerHTML = uit;
+    $("#u-uitkomst").querySelectorAll("[data-link]").forEach(function (b) {
+      b.addEventListener("click", function () { kopieer(b.dataset.link, b); });
+    });
+    var alles = $("#u-kopieer-alles");
+    if (alles) alles.addEventListener("click", function () {
+      kopieer(regels.map(function (x) { return x.email + "\t" + basis + "?token=" + x.token; }).join("\n"), alles);
+    });
+  }
+
+  /* ---------- bedrijven ---------- */
+  function tekenBedrijven() {
+    var uit = '<div class="kop"><h1>Klant<em>bedrijven</em></h1>' +
+      "<p>Elk bedrijf krijgt een eigen omgeving in zijn eigen huisstijl. De cursus blijft dezelfde, het certificaat blijft van BHV Roden.</p></div>";
+
+    uit += '<div class="split"><div class="blok"><div class="blok-kop"><h3>Nieuw bedrijf</h3></div>' +
+      '<div class="veld"><label for="b-naam">Bedrijfsnaam</label><input class="kies" id="b-naam" type="text" placeholder="Gemeente Westerkwartier"></div>' +
+      '<div class="veld-rij">' +
+      '<div class="veld"><label for="b-contact">Contactpersoon</label><input class="kies" id="b-contact" type="text" placeholder="Sharon Oosterhuis"></div>' +
+      '<div class="veld"><label for="b-mail">E-mailadres contactpersoon</label><input class="kies" id="b-mail" type="email" placeholder="naam@bedrijf.nl"></div>' +
+      "</div>" +
+      '<div class="veld-rij">' +
+      '<div class="veld"><label for="b-p">Hoofdkleur</label><div class="kleurveld">' +
+      '<input type="color" id="b-p" value="#0F1F3D"><input class="kies" type="text" id="b-pt" value="#0F1F3D"></div></div>' +
+      '<div class="veld"><label for="b-a">Accentkleur</label><div class="kleurveld">' +
+      '<input type="color" id="b-a" value="#B71C1C"><input class="kies" type="text" id="b-at" value="#B71C1C"></div></div>' +
+      "</div>" +
+      '<div class="veld"><label for="b-logo">Adres van het logo (mag leeg)</label><input class="kies" id="b-logo" type="url" placeholder="https://..."></div>' +
+      '<div class="veld"><label><input type="checkbox" id="b-rond" checked style="width:auto;margin-right:8px">Ronde knoppen</label>' +
+      '<span class="hint">Uit betekent rechte hoeken, zoals bij Westerkwartier.</span></div>' +
+      '<div class="fout" id="b-fout" hidden></div>' +
+      '<div class="btn-row"><button type="button" class="btn btn-a" id="b-maak">Bedrijf aanmaken</button></div></div>' +
+      '<div class="blok"><div class="blok-kop"><h3>Zo ziet het eruit</h3></div><div id="b-voorbeeld"></div></div></div>';
+
+    uit += '<div class="paneel" style="margin-top:24px"><div class="paneel-kop"><h2>Bestaande bedrijven</h2></div>' +
+      '<div class="tabel-scroll" style="border:0;box-shadow:none"><table><thead><tr>' +
+      "<th>Bedrijf</th><th>Webadres</th><th>Contactpersoon</th><th>Huisstijl</th></tr></thead><tbody>" +
+      B.organisaties.map(function (o) {
+        return "<tr><td class=\"nm\">" + esc(o.naam) + (o.is_eigenaar ? ' <span class="chip nieuw">eigen</span>' : "") + "</td>" +
+          '<td class="num" style="font-size:12px;color:var(--muted)">' + esc(o.slug) + ".bhvrodenelearning.nl</td>" +
+          "<td>" + esc(o.contactpersoon_naam || "") + (o.contactpersoon_email ? "<br><span style=\"font-size:12px;color:var(--muted)\">" + esc(o.contactpersoon_email) + "</span>" : "") + "</td>" +
+          '<td><span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:' + esc(o.kleur_primair) + ';vertical-align:middle"></span>' +
+          '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td></tr>';
+      }).join("") + "</tbody></table></div></div>";
+
+    $("#beheer-paneel").innerHTML = uit;
+
+    ["b-naam", "b-contact", "b-p", "b-pt", "b-a", "b-at", "b-rond"].forEach(function (id) {
+      $("#" + id).addEventListener("input", tekenVoorbeeld);
+      $("#" + id).addEventListener("change", tekenVoorbeeld);
+    });
+    koppelKleur("b-p", "b-pt"); koppelKleur("b-a", "b-at");
+    $("#b-maak").addEventListener("click", maakBedrijf);
+    tekenVoorbeeld();
+    return Promise.resolve();
+  }
+
+  function koppelKleur(kleurId, tekstId) {
+    var k = $("#" + kleurId), t = $("#" + tekstId);
+    k.addEventListener("input", function () { t.value = k.value.toUpperCase(); tekenVoorbeeld(); });
+    t.addEventListener("input", function () {
+      if (/^#[0-9a-f]{6}$/i.test(t.value)) { k.value = t.value; tekenVoorbeeld(); }
+    });
+  }
+
+  function tekenVoorbeeld() {
+    var naam = $("#b-naam").value.trim() || "Naam van het bedrijf";
+    var p = $("#b-p").value, a = $("#b-a").value;
+    var rond = $("#b-rond").checked ? "50px" : "0";
+    $("#b-voorbeeld").innerHTML =
+      '<div class="voorbeeld"><div class="vb-balk" style="background:' + esc(p) + '">' +
+      '<span style="width:30px;height:30px;border-radius:3px;background:#fff;display:inline-block"></span>' +
+      '<span class="vb-naam">' + esc(naam) + "<br><span style=\"font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;opacity:.6\">Leeromgeving</span></span></div>" +
+      '<div class="vb-body"><span style="font-family:var(--fh);font-weight:700;font-size:15px">Module 1, eerste hulp</span>' +
+      '<span class="bar"><span style="width:45%;background:' + esc(a) + '"></span></span>' +
+      '<span class="vb-knop" style="background:' + esc(a) + ";border-radius:" + rond + '">Verder gaan</span></div></div>' +
+      '<p class="lead" style="margin-top:12px">Het certificaat blijft altijd in de stijl van BHV Roden, met jullie logo en handtekening. ' +
+      "Deze kleuren gelden alleen voor de leeromgeving van dit bedrijf.</p>";
+  }
+
+  function maakBedrijf() {
+    var knop = $("#b-maak"), fout = $("#b-fout");
+    fout.hidden = true;
+    var naam = $("#b-naam").value.trim();
+    if (naam.length < 2) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>Vul een bedrijfsnaam in</b>Die wordt ook gebruikt voor het webadres.";
+      return;
+    }
+    knop.disabled = true; knop.textContent = "Bezig";
+    sb.rpc("nieuw_bedrijf", {
+      p_naam: naam,
+      p_slug: "",
+      p_contact_naam: $("#b-contact").value.trim() || null,
+      p_contact_email: $("#b-mail").value.trim() || null,
+      p_kleur_primair: $("#b-p").value.toUpperCase(),
+      p_kleur_accent: $("#b-a").value.toUpperCase(),
+      p_ronde_hoeken: $("#b-rond").checked,
+      p_logo_url: $("#b-logo").value.trim() || null
+    }).then(function (r) {
+      knop.disabled = false; knop.textContent = "Bedrijf aanmaken";
+      if (r.error) {
+        fout.hidden = false;
+        fout.innerHTML = "<b>Aanmaken mislukt</b>" + esc(r.error.message);
+        return;
+      }
+      B.organisaties = null; B.deelnemers = null;
+      toast(naam + " staat erin");
+      naarBeheer("bedrijven");
+    });
+  }
+
+  /* ---------- certificaten ---------- */
+  function tekenCertificaten() {
+    return sb.from("certificaten")
+      .select("nummer, naam_op_certificaat, geboortedatum, cursus_titel, score, behaald_op, geldig_tot, organisatie_id, ingetrokken_op")
+      .order("behaald_op", { ascending: false })
+      .then(function (r) {
+        if (r.error) throw r.error;
+        var c = (r.data || []).filter(function (x) { return !x.ingetrokken_op; });
+        var vandaag = new Date().toISOString().slice(0, 10);
+
+        var uit = '<div class="kop"><h1>Certi<em>ficaten</em></h1>' +
+          "<p>Elk certificaat krijgt een oplopend nummer en is een jaar geldig. Ze worden automatisch aangemaakt zodra iemand het examen haalt.</p></div>";
+
+        if (!c.length) {
+          uit += '<div class="tabel-scroll"><div class="leeg">Nog geen certificaten. Ze verschijnen hier zodra de eerste deelnemer slaagt.</div></div>';
+        } else {
+          var verlopen = c.filter(function (x) { return x.geldig_tot <= vandaag; }).length;
+          uit += '<div class="tegels">' +
+            tegel(c.length, "Uitgegeven", "in totaal") +
+            tegel(c.length - verlopen, "Geldig", "vandaag", "ok") +
+            tegel(verlopen, "Verlopen", "moeten op herhaling") +
+            "</div>";
+          uit += '<div class="tabel-scroll"><table><thead><tr>' +
+            "<th>Nummer</th><th>Naam</th><th>Geboren</th><th>Bedrijf</th><th>Score</th><th>Behaald</th><th>Geldig tot</th>" +
+            "</tr></thead><tbody>" +
+            c.map(function (x) {
+              var oud = x.geldig_tot <= vandaag;
+              return "<tr>" +
+                '<td class="num nm">' + esc(x.nummer) + "</td>" +
+                '<td class="nm">' + esc(x.naam_op_certificaat) + "</td>" +
+                '<td class="num">' + esc(datumNL(x.geboortedatum)) + "</td>" +
+                "<td>" + esc(orgNaam(x.organisatie_id)) + "</td>" +
+                '<td class="num">' + (x.score != null ? x.score + "%" : "") + "</td>" +
+                '<td class="num">' + esc(datumNL(x.behaald_op)) + "</td>" +
+                '<td class="num">' + esc(datumNL(x.geldig_tot)) +
+                (oud ? ' <span class="chip mis">verlopen</span>' : "") + "</td></tr>";
+            }).join("") + "</tbody></table></div>";
+        }
+
+        uit += '<div class="let" style="margin-top:20px"><b>Het bestand zelf komt nog.</b> ' +
+          "De regels hierboven zijn echt en de nummers liggen vast. Het opmaken van de PDF en het automatisch mailen " +
+          "doen we in de volgende stap, samen met de maildienst.</div>";
+
+        $("#beheer-paneel").innerHTML = uit;
+      });
+  }
+
+  /* ---------- systeemcontrole ---------- */
   function regel(ok, titel, uitleg, waarde) {
     var kl = ok === null ? "bezig" : (ok ? "ja" : "nee");
     var t = ok === null ? "" : (ok ? IC.vink : IC.kruis);
@@ -809,6 +1384,19 @@
     var v = sb.from(tabel).select("id", { count: "exact", head: true });
     if (f) v = f(v);
     return v.then(function (r) { return r.error ? { fout: r.error } : { n: r.count }; });
+  }
+
+  function tekenControle() {
+    $("#beheer-paneel").innerHTML =
+      '<div class="kop"><h1>Systeem<em>controle</em></h1>' +
+      "<p>Deze pagina praat rechtstreeks met de database en laat zien of alles klaarstaat.</p></div>" +
+      '<div class="paneel"><div class="paneel-kop"><h2>Jouw account</h2></div>' +
+      '<div class="paneel-body" id="c-account"></div></div>' +
+      '<div class="paneel"><div class="paneel-kop"><h2>Wat er in de database staat</h2>' +
+      '<button type="button" class="btn btn-g btn-sm" id="c-opnieuw">Opnieuw controleren</button></div>' +
+      '<div class="paneel-body" id="c-inhoud"></div></div><div id="c-uitslag"></div>';
+    $("#c-opnieuw").addEventListener("click", controleer);
+    return controleer();
   }
 
   function controleer() {
@@ -827,14 +1415,15 @@
       p.geboortedatum ? datumNL(p.geboortedatum) : "nog leeg");
     $("#c-account").innerHTML = a;
 
-    Promise.all([
+    return Promise.all([
       sb.from("cursussen").select("titel, in_ontwikkeling, aantal_examenvragen, slaagcriterium").limit(5),
       tel("modules"), tel("lessen"),
       tel("vragen", function (v) { return v.eq("soort", "evaluatie"); }),
       tel("vragen", function (v) { return v.eq("soort", "toets"); }),
       tel("vragen", function (v) { return v.eq("soort", "examen"); }),
       tel("organisaties"),
-      sb.rpc("start_toets", { p_inschrijving: "00000000-0000-0000-0000-000000000000", p_soort: "examen" })
+      sb.rpc("start_toets", { p_inschrijving: "00000000-0000-0000-0000-000000000000", p_soort: "examen" }),
+      sb.rpc("bekijk_uitnodiging", { p_token: "controle-bestaat-niet" })
     ]).then(function (r) {
       var cursus = r[0], alles = true, uit = "";
 
@@ -862,16 +1451,22 @@
       uit += ct(r[3], "Evaluatievragen", 25);
       uit += ct(r[4], "Toetsvragen", 15);
       uit += ct(r[5], "Examenbank", 24);
-      uit += ct(r[6], "Organisaties", 1);
 
-      /* De functie hoort te bestaan. Hij faalt met een nette melding
-         omdat de inschrijving niet van ons is, en dat is precies goed. */
-      var fn = r[7];
-      var mist = fn.error && /does not exist|not find the function|schema cache/i.test(fn.error.message || "");
-      if (mist) alles = false;
-      uit += regel(!mist, "Functies voor toetsen",
-        mist ? "start_toets ontbreekt. Draai 06_cursist.sql, stap 9 op de installatiepagina."
-             : "start_toets, lever_in en schrijf_mij_in staan klaar.");
+      if (r[6].fout) { alles = false; uit += regel(false, "Organisaties", esc(r[6].fout.message)); }
+      else uit += regel(r[6].n >= 1, "Organisaties", r[6].n >= 1 ? "BHV Roden staat erin, plus je klanten."
+        : "BHV Roden hoort er standaard in te staan. Draai 01_schema.sql opnieuw.", r[6].n);
+
+      var mistToets = r[7].error && /does not exist|not find the function|schema cache/i.test(r[7].error.message || "");
+      if (mistToets) alles = false;
+      uit += regel(!mistToets, "Functies voor toetsen",
+        mistToets ? "start_toets ontbreekt. Draai 06_cursist.sql, stap 9."
+                  : "start_toets, lever_in en schrijf_mij_in staan klaar.");
+
+      var mistBeheer = r[8].error && /does not exist|not find the function|schema cache/i.test(r[8].error.message || "");
+      if (mistBeheer) alles = false;
+      uit += regel(!mistBeheer, "Functies voor beheer en uitnodigingen",
+        mistBeheer ? "bekijk_uitnodiging ontbreekt. Draai 07_beheer.sql, stap 10. Daar zit ook een beveiligingsfout in dicht."
+                   : "Uitnodigen, inwisselen en de deelnemerslijst staan klaar.");
 
       $("#c-inhoud").innerHTML = uit;
       $("#c-uitslag").innerHTML = alles
