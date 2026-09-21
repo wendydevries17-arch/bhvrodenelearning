@@ -1,41 +1,54 @@
-BHV RODEN LEEROMGEVING, STAP 8b
+BHV RODEN LEEROMGEVING, STAP 10
 ===============================
-Dezelfde pagina als vorige keer, maar nu met de juiste sleutel.
+De echte cursistkant. Dit is geen controlepagina meer.
 
-WAT ER MIS WAS
---------------
-Supabase is onlangs van sleutelsysteem gewisseld. De oude soort
-heette anon key en begon met eyJ. Jouw project heeft die soort
-uitgezet, vandaar de melding "Legacy API keys are disabled".
-In config.js staat nu de nieuwe publishable key. Die begint met
-sb_publishable_ en hoort gewoon in de browser thuis.
+WAT ERIN ZIT
+------------
+- Inloggen
+- Profiel aanvullen: voornaam, achternaam, geboortedatum.
+  Die drie komen letterlijk op het certificaat.
+- Dashboard met je voortgang per module
+- Alle dertien lessen met de echte lesteksten uit de database
+- Evaluatievragen met directe uitleg bij goed en fout
+- Kennistoets per module
+- Eindexamen, vragen worden geloot uit de examenbank
+- Certificaat op het scherm na het slagen
+- Systeemcontrole, alleen zichtbaar voor beheerders
+
+Nakijken gebeurt in de database, niet in de browser. Het juiste
+antwoord komt pas binnen nadat er is ingeleverd. Bij het examen
+worden de vragen aan de databasekant geloot, dus niemand krijgt
+dezelfde set.
+
+WAT ER NOG NIET IN ZIT
+----------------------
+- De video's. Elke les toont nu een foto met de melding dat de
+  video nog volgt. De lesstof zelf is compleet.
+- Het certificaat per mail. Je ziet hem nu op het scherm.
+- De beheeromgeving: deelnemers importeren, klanten aanmaken,
+  certificaten downloaden. Dat is de volgende stap.
 
 OP NETLIFY ZETTEN
 -----------------
-1. Ga naar je bestaande site bhvrodenelearning.netlify.app.
-2. Klik op Deploys.
-3. Sleep deze map in het vak "Drag and drop your project
-   output folder here".
-   Dus NIET een nieuwe site aanmaken, gewoon over de oude heen.
-4. Open het adres en log in met:
-      wendy@getfitgirl.nl   of   info@bhvroden.nl
-   met het wachtwoord dat je in Supabase hebt ingesteld.
+1. Ga naar je site bhvrodenelearning.netlify.app
+2. Klik op Deploys
+3. Sleep deze map in het vak "Drag and drop"
+   Dus niet een nieuwe site aanmaken, gewoon over de oude heen.
 
 WAT JE ZOU MOETEN ZIEN
 ----------------------
-Jouw account   : naam, rol beheerder, organisatie BHV Roden
-                 Geboortedatum staat op "nog leeg", dat hoort zo.
-In de database : 1 cursus, 4 modules, 13 lessen,
-                 25 evaluatievragen, 15 toetsvragen, 24 examenvragen,
-                 1 organisatie
+Log in met wendy@getfitgirl.nl of info@bhvroden.nl.
+De eerste keer vraagt hij om je geboortedatum. Daarna sta je op
+het dashboard met vier modules en het eindexamen.
 
-Onderaan verschijnt een groene of oranje balk met de uitslag.
-Klopt er iets niet, stuur dan een schermafbeelding van die pagina.
+Wil je de hele route testen, loop dan alle dertien lessen door.
+Sneller kan ook: klik in het beheer op Systeemcontrole om te zien
+of de database klopt.
 
 BESTANDEN
 ---------
 index.html   de pagina
 style.css    de opmaak
 config.js    het adres en de sleutel van jouw Supabase
-app.js       het inloggen en de controle
-img/         logo en foto
+app.js       de hele leeromgeving
+img/         logo, handtekening en de lesfoto's

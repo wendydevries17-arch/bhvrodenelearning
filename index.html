@@ -40,51 +40,142 @@
 
         <div class="fout" id="login-fout" hidden></div>
 
-        <button type="submit" class="knop" id="login-knop">Inloggen</button>
+        <button type="submit" class="btn btn-a btn-blok" id="login-knop">Inloggen</button>
         <p class="lead" style="font-size:13px">Wachtwoord vergeten? Neem contact op via info@bhvroden.nl.</p>
       </form>
     </div>
   </div>
 </div>
 
-<!-- ============ NA HET INLOGGEN ============ -->
+<!-- ============ DE LEEROMGEVING ============ -->
 <div id="scherm-app" hidden>
+
+  <div class="melding-balk" id="ontwikkelbalk" hidden>
+    <b>Let op.</b> De inhoud van deze cursus wordt nog nagekeken door een instructeur.
+  </div>
+
   <header class="balk">
     <img src="img/logo-bhvroden.jpg" alt="BHV Roden">
     <span class="naam">BHV Roden<span>Leeromgeving</span></span>
     <span class="rechts">
+      <button type="button" class="knop-licht" id="nav-overzicht" hidden>Overzicht</button>
+      <button type="button" class="knop-licht" id="nav-controle" hidden>Systeemcontrole</button>
       <span class="wie" id="wie"></span>
-      <button type="button" class="knop grijs klein" id="uitloggen">Uitloggen</button>
+      <button type="button" class="knop-licht" id="uitloggen">Uitloggen</button>
     </span>
   </header>
 
-  <div class="wrap">
+  <!-- laden -->
+  <div class="wrap" id="view-laden">
+    <div class="laden"><span class="tol"></span>Bezig met ophalen van je gegevens</div>
+  </div>
+
+  <!-- ---------- PROFIEL AANVULLEN ---------- -->
+  <div class="wrap wrap-smal" id="view-profiel" hidden>
     <div class="kop">
-      <h1>Systeemcontrole <em>geslaagd</em></h1>
-      <p id="kop-tekst">Je bent ingelogd op de echte database. Hieronder staat wat het systeem heeft gevonden.</p>
+      <h1>Nog even <em>je gegevens</em></h1>
+      <p>Deze drie gegevens komen straks letterlijk op je certificaat te staan. Vul ze daarom in zoals ze in je paspoort of op je rijbewijs staan.</p>
+    </div>
+    <form class="blok" id="profiel-form">
+      <div class="veld-rij">
+        <div class="veld">
+          <label for="pf-voor">Voornaam</label>
+          <input id="pf-voor" type="text" autocomplete="given-name" required>
+        </div>
+        <div class="veld">
+          <label for="pf-achter">Achternaam</label>
+          <input id="pf-achter" type="text" autocomplete="family-name" required>
+        </div>
+      </div>
+      <div class="veld">
+        <label for="pf-gb">Geboortedatum</label>
+        <input id="pf-gb" type="date" required min="1920-01-01">
+        <span class="hint">Nodig voor het certificaat. Wij bewaren hem alleen daarvoor.</span>
+      </div>
+      <div class="fout" id="profiel-fout" hidden></div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-a" id="profiel-knop">Opslaan en beginnen</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ---------- DASHBOARD ---------- -->
+  <div class="wrap" id="view-dashboard" hidden>
+    <div class="hero">
+      <img src="img/blussen-vrouw.jpg" alt="">
+      <span class="waas"></span>
+      <div class="hero-in">
+        <div class="hero-txt">
+          <span class="eyebrow">Bedrijfshulpverlening</span>
+          <h1 id="dash-titel">Basiscursus</h1>
+          <p id="dash-omschrijving"></p>
+        </div>
+        <div class="hero-kaart">
+          <span class="k">Jouw voortgang</span>
+          <span class="bar"><span id="dash-bar" style="width:0%"></span></span>
+          <span class="bar-rij"><span id="dash-tel">0 van 0 lessen</span><span id="dash-pct">0%</span></span>
+          <span class="v" id="dash-status">Nog niet begonnen</span>
+        </div>
+      </div>
     </div>
 
+    <div class="rooster" id="dash-modules"></div>
+
+    <div class="voet">
+      <p><strong>Zo werkt het.</strong> Elke les sluit je af met een paar evaluatievragen. Die tellen niet mee, ze zijn om te controleren of de stof blijft hangen. Per module maak je daarna een kennistoets. Zijn alle modules af, dan gaat het eindexamen open.</p>
+      <p>Je voortgang wordt bewaard. Je kunt tussendoor stoppen en later verder.</p>
+    </div>
+  </div>
+
+  <!-- ---------- LES ---------- -->
+  <div class="wrap" id="view-les" hidden>
+    <button type="button" class="terug" id="les-terug">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+      Terug naar het overzicht
+    </button>
+    <div class="schil">
+      <aside class="inhoud">
+        <div class="inhoud-kop">
+          <h4 id="toc-titel">Cursusinhoud</h4>
+          <div class="sub" id="toc-sub"></div>
+          <span class="bar"><span id="toc-bar" style="width:0%"></span></span>
+          <div class="bar-rij"><span id="toc-tel"></span><span id="toc-pct"></span></div>
+        </div>
+        <div class="inhoud-body" id="toc-body"></div>
+      </aside>
+      <div class="paneel-rij" id="les-paneel"></div>
+    </div>
+  </div>
+
+  <!-- ---------- TOETS EN EXAMEN ---------- -->
+  <div class="wrap wrap-smal" id="view-toets" hidden>
+    <button type="button" class="terug" id="toets-terug">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>
+      Terug naar het overzicht
+    </button>
+    <div id="toets-paneel"></div>
+  </div>
+
+  <!-- ---------- SYSTEEMCONTROLE ---------- -->
+  <div class="wrap" id="view-controle" hidden>
+    <div class="kop">
+      <h1>Systeem<em>controle</em></h1>
+      <p>Deze pagina praat rechtstreeks met de database en laat zien of alles klaarstaat. Alleen zichtbaar voor beheerders.</p>
+    </div>
     <div class="paneel">
       <div class="paneel-kop"><h2>Jouw account</h2></div>
-      <div class="paneel-body" id="account"><div class="laden"><span class="tol"></span>Bezig met ophalen</div></div>
+      <div class="paneel-body" id="c-account"></div>
     </div>
-
     <div class="paneel">
       <div class="paneel-kop">
         <h2>Wat er in de database staat</h2>
-        <button type="button" class="knop grijs klein" id="opnieuw">Opnieuw controleren</button>
+        <button type="button" class="btn btn-g btn-sm" id="c-opnieuw">Opnieuw controleren</button>
       </div>
-      <div class="paneel-body" id="inhoud"><div class="laden"><span class="tol"></span>Bezig met ophalen</div></div>
+      <div class="paneel-body" id="c-inhoud"></div>
     </div>
-
-    <div id="uitslag"></div>
-
-    <div class="slot">
-      <p><strong>Wat dit betekent</strong></p>
-      <p>Deze pagina praat rechtstreeks met jouw Supabase. Staat alles op groen, dan werken de database, de toegangsregels en de cursusinhoud zoals bedoeld en kan ik de echte leeromgeving erbovenop bouwen.</p>
-      <p>Staat er iets op rood, dan zie je erbij welk SQL-bestand nog gedraaid moet worden.</p>
-    </div>
+    <div id="c-uitslag"></div>
   </div>
+
 </div>
 
 <script src="config.js"></script>
