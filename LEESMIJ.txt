@@ -31,7 +31,9 @@ VOOR HET BEHEER
 - Overzicht: bedrijven, deelnemers, bezig, geslaagd, certificaten
 - Deelnemers: voortgang per persoon, te filteren per bedrijf
 - Uitnodigen: lijst plakken, links krijgen
-- Bedrijven: nieuw klantbedrijf met eigen huisstijl
+- Bedrijven: nieuw klantbedrijf met eigen huisstijl. De kleuren,
+  de hoeken en het logo worden meteen in de leeromgeving van dat
+  bedrijf doorgevoerd. Het certificaat blijft altijd van BHV Roden
 - Certificaten: nummers, datums en geldigheid
 - Systeemcontrole: klopt de database nog
 

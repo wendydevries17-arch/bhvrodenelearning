@@ -314,6 +314,72 @@
     antwoorden: {}
   };
 
+  /* =====================================================================
+     HUISSTIJL VAN DE KLANT
+     De kleuren staan bij de organisatie in de database. Hier worden ze
+     op de pagina gezet. Het certificaat blijft hier buiten: dat is en
+     blijft van BHV Roden, met hun logo en handtekening.
+     ===================================================================== */
+  function hex(h, standaard) {
+    h = String(h || "").trim();
+    return /^#[0-9a-f]{6}$/i.test(h) ? h.toUpperCase() : standaard;
+  }
+  function rgb(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  /* Hoe licht is deze kleur werkelijk, zoals een oog hem ziet.
+     Nodig om te bepalen of er zwarte of witte tekst op moet. */
+  function helderheid(h) {
+    return rgb(h).map(function (v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }).reduce(function (s, v, i) { return s + v * [0.2126, 0.7152, 0.0722][i]; }, 0);
+  }
+  function inkt(h) { return helderheid(h) > 0.42 ? "#1C1C1C" : "#FFFFFF"; }
+  function meng(h, doel, deel) {
+    var a = rgb(h), b = rgb(doel);
+    return "#" + a.map(function (v, i) {
+      return Math.round(v + (b[i] - v) * deel).toString(16).padStart(2, "0");
+    }).join("").toUpperCase();
+  }
+
+  function zetHuisstijl(org) {
+    var s = document.documentElement.style;
+    if (!org || org.is_eigenaar) {
+      /* BHV Roden zelf, of onbekend: laat de standaard staan. */
+      return;
+    }
+    var p = hex(org.kleur_primair, "#0F1F3D");
+    var a = hex(org.kleur_accent, "#B71C1C");
+    var rond = org.ronde_hoeken === false ? "0px" : "50px";
+
+    s.setProperty("--p", p);
+    s.setProperty("--p2", helderheid(p) > 0.42 ? meng(p, "#000000", 0.14) : meng(p, "#FFFFFF", 0.14));
+    s.setProperty("--p-ink", inkt(p));
+    s.setProperty("--a", a);
+    s.setProperty("--a2", helderheid(a) > 0.42 ? meng(a, "#000000", 0.18) : meng(a, "#FFFFFF", 0.14));
+    s.setProperty("--a-ink", inkt(a));
+    s.setProperty("--a-soft", meng(a, "#FFFFFF", 0.88));
+    s.setProperty("--tint", meng(p, "#FFFFFF", 0.92));
+    s.setProperty("--rad", rond);
+    s.setProperty("--radc", org.ronde_hoeken === false ? "0px" : "4px");
+    s.setProperty("--waas-rgb", rgb(p).join(","));
+
+    /* Balk bovenin: naam van de klant, en hun logo als dat er is. */
+    var balk = document.querySelector(".balk");
+    if (balk) {
+      var logo = balk.querySelector("img");
+      if (org.logo_url) { logo.src = org.logo_url; logo.alt = org.naam || ""; }
+      var naam = balk.querySelector(".naam");
+      if (naam) naam.innerHTML = esc(org.naam || "") + "<span>Leeromgeving</span>";
+    }
+    /* Bij een klantomgeving vertellen we er wel bij wie de opleider is.
+       De kleuren zijn van de klant, de opleiding is van BHV Roden. */
+    var vd = $("#verzorgd-door");
+    if (vd) vd.hidden = false;
+    document.body.dataset.klant = "ja";
+  }
+
   function storing(titel, tekst) {
     toon("view-dashboard");
     $("#view-dashboard").innerHTML =
@@ -326,7 +392,8 @@
       if (!S.gebruiker) { location.reload(); return; }
 
       return sb.from("profielen")
-        .select("voornaam, achternaam, geboortedatum, rol, email, organisatie_id, organisaties(naam)")
+        .select("voornaam, achternaam, geboortedatum, rol, email, organisatie_id, " +
+                "organisaties(naam, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url)")
         .eq("id", S.gebruiker.id).maybeSingle()
         .then(function (r) {
           if (r.error) throw r.error;
@@ -336,6 +403,7 @@
           var naam = [S.profiel.voornaam, S.profiel.achternaam].filter(Boolean).join(" ");
           var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "";
           $("#wie").innerHTML = esc(naam || S.profiel.email) + "<span>" + esc(org) + "</span>";
+          zetHuisstijl(S.profiel.organisaties);
           $("#nav-beheer").hidden = (S.profiel.rol !== "beheerder" && S.profiel.rol !== "contactpersoon");
 
           /* Een contactpersoon volgt zelf geen cursus, die gaat direct naar het beheer. */
