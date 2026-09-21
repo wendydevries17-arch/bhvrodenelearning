@@ -71,17 +71,52 @@
       .forEach(function (v) { $("#" + v).hidden = (v !== id); });
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
   }
+  /* Kopieren naar het klembord. Sommige browsers weigeren de nieuwe
+     manier, bijvoorbeeld in een ingebouwd venster of zonder https.
+     Daarom eerst de nieuwe manier, dan de oude, en lukt het allebei
+     niet, dan selecteren we de tekst zodat Cmd+C nog werkt. */
   function kopieer(tekst, knop) {
     var klaar = function () {
       if (!knop) return;
-      var oud = knop.textContent;
+      var oud = knop.dataset.oud || knop.textContent;
+      knop.dataset.oud = oud;
       knop.textContent = "Gekopieerd";
       knop.classList.add("klaar");
       setTimeout(function () { knop.textContent = oud; knop.classList.remove("klaar"); }, 2200);
     };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(tekst).then(klaar).catch(function () { toast("Kopieren lukte niet"); });
-    } else toast("Kopieren lukt niet in deze browser");
+
+    var oudeManier = function () {
+      var t = document.createElement("textarea");
+      t.value = tekst;
+      t.setAttribute("readonly", "");
+      t.style.cssText = "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+      document.body.appendChild(t);
+      t.select();
+      t.setSelectionRange(0, tekst.length);
+      var gelukt = false;
+      try { gelukt = document.execCommand("copy"); } catch (e) { gelukt = false; }
+      t.remove();
+      if (gelukt) klaar();
+      else selecteerVeld();
+      return gelukt;
+    };
+
+    var selecteerVeld = function () {
+      var veld = $("#u-alles");
+      if (veld) {
+        veld.focus();
+        veld.select();
+        toast("Selecteren gelukt, druk nu op Cmd+C");
+      } else {
+        toast("Kopieren lukt niet in deze browser");
+      }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      navigator.clipboard.writeText(tekst).then(klaar).catch(oudeManier);
+    } else {
+      oudeManier();
+    }
   }
 
   /* =====================================================================
@@ -1200,13 +1235,21 @@
       "Overgeslagen betekent dat die persoon al voor deze cursus staat ingeschreven.</div>";
 
     if (regels.length) {
-      uit += '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="u-kopieer-alles">Alle links kopieren</button></div>' +
-        '<div class="link-lijst">' + regels.map(function (x) {
+      var alleLinks = regels.map(function (x) {
+        return x.email + "\t" + basis + "?token=" + x.token;
+      }).join("\n");
+
+      uit += '<div class="link-lijst">' + regels.map(function (x) {
           var link = basis + "?token=" + encodeURIComponent(x.token);
           return '<div class="link-rij"><span class="wie">' + esc(x.email) + "</span>" +
-            '<span class="adres">' + esc(link) + "</span>" +
+            '<a class="adres" href="' + esc(link) + '" target="_blank" rel="noopener">' + esc(link) + "</a>" +
             '<button type="button" class="mini" data-link="' + esc(link) + '">Kopieer</button></div>';
         }).join("") + "</div>" +
+        '<div class="veld" style="margin-top:6px">' +
+        '<label for="u-alles">Alle links bij elkaar</label>' +
+        '<textarea class="plak" id="u-alles" readonly rows="4" spellcheck="false">' + esc(alleLinks) + "</textarea>" +
+        '<span class="hint">Werkt de kopieerknop niet, klik dan in dit vak. Alles wordt dan geselecteerd en je drukt op Cmd+C.</span></div>' +
+        '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="u-kopieer-alles">Alle links kopieren</button></div>' +
         '<div class="let"><b>Bewaar deze links goed.</b> Wie de link heeft kan het account aanmaken, ' +
         "al werkt hij alleen voor het e-mailadres waar hij bij hoort. Zodra de mailkoppeling aanstaat " +
         "gaan deze links vanzelf de deur uit en hoef je hier niets meer mee te doen.</div>";
@@ -1216,6 +1259,8 @@
     $("#u-uitkomst").querySelectorAll("[data-link]").forEach(function (b) {
       b.addEventListener("click", function () { kopieer(b.dataset.link, b); });
     });
+    var veld = $("#u-alles");
+    if (veld) veld.addEventListener("focus", function () { veld.select(); });
     var alles = $("#u-kopieer-alles");
     if (alles) alles.addEventListener("click", function () {
       kopieer(regels.map(function (x) { return x.email + "\t" + basis + "?token=" + x.token; }).join("\n"), alles);
