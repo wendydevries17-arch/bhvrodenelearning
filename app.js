@@ -861,8 +861,9 @@
       /* Een les met eigen video's. Kop eerst, dan de films. */
       uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
-      uit += films;
+      // De tekst leidt de video in, dus die staat erboven.
       if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+      uit += films;
     } else {
       /* Nog geen video. Een stilstaand beeld met uitleg. */
       uit += '<div class="speler"><div class="toneel">' +
