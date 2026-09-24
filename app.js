@@ -492,7 +492,13 @@
       })
       .then(function (r) {
         r.forEach(function (x) { if (x.error) throw x.error; });
-        S.modules = r[0].data || [];
+        // Een beheerder mag klanthoofdstukken beheren, maar in zijn
+        // eigen cursus horen ze niet thuis. Hier houden we alleen de
+        // basis over plus het hoofdstuk van je eigen bedrijf.
+        var mijnOrg = S.profiel && S.profiel.organisatie_id;
+        S.modules = (r[0].data || []).filter(function (m) {
+          return !m.organisatie_id || m.organisatie_id === mijnOrg;
+        });
         if (!S.modules.length) throw new Error("geen-inhoud");
 
         S.evaluaties = {}; S.toetsModules = {};
@@ -1991,10 +1997,19 @@
     return controleer();
   }
 
+  /* Schrijf alleen als het vak er nog is. Klikt iemand halverwege naar
+     een ander tabblad, dan is het paneel al vervangen en hoeft er niets
+     meer te gebeuren. Dat is geen fout. */
+  function zetIn(kies, html) {
+    var el = $(kies);
+    if (el) el.innerHTML = html;
+    return !!el;
+  }
+
   function controleer() {
-    $("#c-account").innerHTML = '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>';
-    $("#c-inhoud").innerHTML = '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>';
-    $("#c-uitslag").innerHTML = "";
+    if (!zetIn("#c-account", '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>')) return Promise.resolve();
+    zetIn("#c-inhoud", '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>');
+    zetIn("#c-uitslag", "");
 
     var p = S.profiel || {};
     var naam = [p.voornaam, p.achternaam].filter(Boolean).join(" ") || "(naam nog niet ingevuld)";
@@ -2005,7 +2020,7 @@
     a += regel(p.geboortedatum ? true : null, "Geboortedatum",
       p.geboortedatum ? "Staat klaar voor op het certificaat." : "Nog leeg, die vul je in de leeromgeving zelf in.",
       p.geboortedatum ? datumNL(p.geboortedatum) : "nog leeg");
-    $("#c-account").innerHTML = a;
+    zetIn("#c-account", a);
 
     return Promise.all([
       sb.from("cursussen").select("titel, in_ontwikkeling, aantal_examenvragen, slaagcriterium").limit(5),
@@ -2060,10 +2075,10 @@
         mistBeheer ? "bekijk_uitnodiging ontbreekt. Draai 07_beheer.sql, stap 10. Daar zit ook een beveiligingsfout in dicht."
                    : "Uitnodigen, inwisselen en de deelnemerslijst staan klaar.");
 
-      $("#c-inhoud").innerHTML = uit;
-      $("#c-uitslag").innerHTML = alles
+      zetIn("#c-inhoud", uit);
+      zetIn("#c-uitslag", alles
         ? '<div class="goed"><b>Alles staat goed.</b> De database, de toegangsregels en de cursusinhoud werken.</div>'
-        : '<div class="let"><b>Er ontbreekt nog iets.</b> Hierboven staat bij elke rode regel welk bestand je nog moet draaien.</div>';
+        : '<div class="let"><b>Er ontbreekt nog iets.</b> Hierboven staat bij elke rode regel welk bestand je nog moet draaien.</div>');
     });
   }
 })();
