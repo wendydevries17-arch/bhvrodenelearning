@@ -16,7 +16,8 @@
   var IC = {
     vink:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17.5 19 7"/></svg>',
     kruis: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
-    slot:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="11" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>'
+    slot:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="11" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>',
+    terug: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5 8 12l7 7"/></svg>'
   };
 
   /* ---------- controle vooraf ---------- */
@@ -311,7 +312,7 @@
     gebruiker: null, profiel: null,
     cursus: null, modules: [], lessen: [], evaluaties: {},
     toetsModules: {}, inschrijving: null, voortgang: {}, pogingen: [],
-    antwoorden: {}
+    antwoorden: {}, video: null
   };
 
   /* =====================================================================
@@ -482,10 +483,11 @@
         if (r.error) throw r.error;
         S.inschrijving = r.data;
         return Promise.all([
-          sb.from("modules").select("id, titel, volgorde").eq("cursus_id", S.cursus.id).order("volgorde"),
+          sb.from("modules").select("id, titel, volgorde, organisatie_id").eq("cursus_id", S.cursus.id).order("volgorde"),
           sb.from("vragen").select("id, les_id, module_id, soort, volgorde, vraag, opties").eq("cursus_id", S.cursus.id).in("soort", ["evaluatie", "toets"]).order("volgorde"),
           sb.from("voortgang").select("les_id, antwoorden, afgerond_op").eq("inschrijving_id", S.inschrijving),
-          sb.from("pogingen").select("id, soort, module_id, score, geslaagd, ingeleverd_op").eq("inschrijving_id", S.inschrijving).order("gestart_op")
+          sb.from("pogingen").select("id, soort, module_id, score, geslaagd, ingeleverd_op").eq("inschrijving_id", S.inschrijving).order("gestart_op"),
+          sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle()
         ]);
       })
       .then(function (r) {
@@ -506,9 +508,16 @@
         (r[2].data || []).forEach(function (v) { S.voortgang[v.les_id] = v; });
         S.pogingen = r[3].data || [];
 
+        // De videodienst. Staat hij er niet, dan tonen we gewoon de
+        // melding dat de video nog volgt.
+        var inst = r[4] && r[4].data;
+        var w = inst && inst.waarde;
+        if (typeof w === "string") { try { w = JSON.parse(w); } catch (e) { w = null; } }
+        S.video = w || null;
+
         var ids = S.modules.map(function (m) { return m.id; });
         return sb.from("lessen")
-          .select("id, module_id, titel, volgorde, duur_seconden, tekst, markeringen, foto_url")
+          .select("id, module_id, titel, volgorde, duur_seconden, tekst, markeringen, foto_url, videos")
           .in("module_id", ids).order("volgorde");
       })
       .then(function (r) {
@@ -569,6 +578,42 @@
   /* =====================================================================
      DASHBOARD
      ===================================================================== */
+  /* ---------------------------------------------------------------------
+     De videospeler
+
+     De video's staan bij Bunny Stream, niet bij ons. Dat scheelt
+     bandbreedte en het speelt overal vloeiend af. Het nummer van de
+     bibliotheek staat in de instellingen in de database, zodat je van
+     dienst kunt wisselen zonder dat hier iets verandert.
+     --------------------------------------------------------------------- */
+  function spelerHtml(v, titel) {
+    var bib = (S.video && S.video.bibliotheek) || "";
+    var domein = (S.video && S.video.domein) || "iframe.mediadelivery.net";
+    var id = v && (v.video || v.id);
+    if (!bib || !id) return "";
+    var bron = "https://" + domein + "/embed/" + encodeURIComponent(bib) + "/" +
+      encodeURIComponent(id) + "?autoplay=false&preload=false&responsive=true";
+    return '<div class="video">' +
+      '<iframe src="' + esc(bron) + '" loading="lazy" allowfullscreen ' +
+      'allow="accelerometer;gyroscope;encrypted-media;picture-in-picture;fullscreen" ' +
+      'title="' + esc(titel || (v && v.titel) || "Video") + '"></iframe></div>';
+  }
+
+  function videosHtml(l) {
+    var lijst = Array.isArray(l.videos) ? l.videos : [];
+    if (!lijst.length) return "";
+    var klaar = lijst.map(function (v) {
+      var speler = spelerHtml(v, v.titel);
+      if (!speler) return "";
+      return '<div class="videoblok">' +
+        (v.titel ? '<div class="videokop"><h3>' + esc(v.titel) + "</h3>" +
+          (v.duur ? '<span class="lead">' + duur(v.duur) + "</span>" : "") + "</div>" : "") +
+        speler + "</div>";
+    }).filter(Boolean);
+    if (!klaar.length) return "";
+    return '<div class="videos">' + klaar.join("") + "</div>";
+  }
+
   function naarDashboard() {
     toon("view-dashboard");
     $("#nav-overzicht").hidden = false;
@@ -718,21 +763,34 @@
     var mark = Array.isArray(l.markeringen) ? l.markeringen : [];
     var uit = "";
 
-    /* video, voorlopig een stilstaand beeld */
-    uit += '<div class="speler"><div class="toneel">' +
-      (l.foto_url ? '<img src="' + esc(l.foto_url) + '" alt="">' : "") +
-      '<span class="waas"></span><span class="vtag">Video volgt</span>' +
-      '<div class="vmelding"><b>De video van deze les staat er nog niet op</b>' +
-      "<span>De lesstof hieronder is compleet. Zodra de opnames klaar zijn verschijnt de video hier.</span></div></div>" +
-      (mark.length ? '<div class="hoofdstukken">' + mark.map(function (x) {
-        return "<span>" + esc(x[0]) + "  " + esc(x[1]) + "</span>";
-      }).join("") + "</div>" : "") +
-      "</div>";
+    var films = videosHtml(l);
+    var heeftTekst = Array.isArray(l.tekst) && l.tekst.length > 0;
 
-    /* kop en tekst */
-    uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
-      "<h2>" + esc(l.titel) + "</h2></div>";
-    uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+    if (films) {
+      /* Een les met eigen video's. Kop eerst, dan de films. */
+      uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
+        "<h2>" + esc(l.titel) + "</h2></div>";
+      uit += films;
+      if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+    } else {
+      /* Nog geen video. Een stilstaand beeld met uitleg. */
+      uit += '<div class="speler"><div class="toneel">' +
+        (l.foto_url ? '<img src="' + esc(l.foto_url) + '" alt="">' : "") +
+        '<span class="waas"></span><span class="vtag">Video volgt</span>' +
+        '<div class="vmelding"><b>De video van deze les staat er nog niet op</b>' +
+        "<span>" + (heeftTekst
+          ? "De lesstof hieronder is compleet. Zodra de opnames klaar zijn verschijnt de video hier."
+          : "Deze les bestaat uit video. Zodra de opnames klaar zijn verschijnen ze hier.") +
+        "</span></div></div>" +
+        (mark.length ? '<div class="hoofdstukken">' + mark.map(function (x) {
+          return "<span>" + esc(x[0]) + "  " + esc(x[1]) + "</span>";
+        }).join("") + "</div>" : "") +
+        "</div>";
+
+      uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
+        "<h2>" + esc(l.titel) + "</h2></div>";
+      if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+    }
 
     /* evaluatievragen */
     if (vragen.length) {
@@ -1063,7 +1121,7 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
@@ -1084,6 +1142,7 @@
       if (tab === "bedrijven")         return tekenBedrijven();
       if (tab === "certificaten")      return tekenCertificaten();
       if (tab === "mail")              return tekenMail();
+      if (tab === "videos")            return tekenVideos();
       if (tab === "controle")          return tekenControle();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
@@ -1548,6 +1607,153 @@
       knop.disabled = false; knop.textContent = was;
       toast(e && e.message ? e.message : "Het lukte niet");
     });
+  }
+
+
+  /* ---------- video's ----------
+     Hier koppel je de nummers van Bunny Stream aan de lessen. De
+     bestanden zelf staan bij Bunny, wij bewaren alleen het nummer.
+     ------------------------------------------------------------------ */
+  var V = { dienst: null, modules: null, lessen: null };
+
+  function tekenVideos() {
+    return Promise.all([
+      sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle(),
+      sb.from("modules").select("id, titel, volgorde, cursus_id, organisatie_id").order("volgorde"),
+      sb.from("lessen").select("id, module_id, titel, volgorde, videos").order("volgorde")
+    ]).then(function (r) {
+      r.forEach(function (x) { if (x.error) throw x.error; });
+
+      var w = r[0].data && r[0].data.waarde;
+      if (typeof w === "string") { try { w = JSON.parse(w); } catch (e) { w = null; } }
+      V.dienst = w || { soort: "bunny", bibliotheek: "", domein: "iframe.mediadelivery.net" };
+      V.modules = r[1].data || [];
+      V.lessen = r[2].data || [];
+
+      var uit = '<div class="kop"><h1>De <em>video\'s</em></h1>' +
+        "<p>De bestanden staan bij Bunny Stream. Hier koppel je per les welke video's erbij horen. " +
+        "Je hebt alleen het nummer nodig dat Bunny aan een video geeft.</p></div>";
+
+      uit += '<div class="paneel"><div class="paneel-kop"><h2>De videodienst</h2></div>' +
+        '<div class="paneel-body">' +
+        '<div class="veld"><label for="v-bib">Nummer van je bibliotheek bij Bunny</label>' +
+        '<input class="kies" id="v-bib" type="text" inputmode="numeric" placeholder="bijvoorbeeld 412398" value="' +
+        esc(V.dienst.bibliotheek || "") + '">' +
+        '<span class="hint">Bunny noemt dit de Video Library ID. Je vindt hem in het adres van je bibliotheek, of onder API.</span></div>' +
+        '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="v-bib-op">Opslaan</button>' +
+        '<span class="lead" id="v-bib-stand"></span></div>' +
+        (V.dienst.bibliotheek ? "" :
+          '<div class="let" style="margin-top:14px"><b>Zonder dit nummer speelt er niets af.</b> ' +
+          "De video's die je hieronder koppelt worden pas zichtbaar zodra dit is ingevuld.</div>") +
+        "</div></div>";
+
+      var eigen = V.modules.filter(function (m) { return m.organisatie_id; });
+      var basis = V.modules.filter(function (m) { return !m.organisatie_id; });
+      var rij = eigen.concat(basis);
+
+      rij.forEach(function (m) {
+        var ls = V.lessen.filter(function (l) { return l.module_id === m.id; });
+        if (!ls.length) return;
+        var org = m.organisatie_id ? orgNaam(m.organisatie_id) : null;
+        uit += '<div class="paneel"><div class="paneel-kop"><h2>' + esc(m.titel) + "</h2>" +
+          (org ? '<span class="chip nieuw">alleen ' + esc(org) + "</span>" : "") + "</div>" +
+          '<div class="paneel-body">' +
+          ls.map(function (l) {
+            var n = Array.isArray(l.videos) ? l.videos.length : 0;
+            return '<div class="regel"><span class="vink ' + (n ? "ja" : "bezig") + '">' + (n ? IC.vink : "") + "</span>" +
+              '<span class="tekst"><b>' + esc(l.titel) + "</b><span>" +
+              (n ? n + (n === 1 ? " video gekoppeld" : " video's gekoppeld") : "nog geen video") + "</span></span>" +
+              '<button type="button" class="btn btn-g btn-sm" data-les-video="' + esc(l.id) + '">Bewerken</button></div>';
+          }).join("") + "</div></div>";
+      });
+
+      $("#beheer-paneel").innerHTML = uit;
+      $("#v-bib-op").addEventListener("click", bewaarBibliotheek);
+      $("#beheer-paneel").querySelectorAll("[data-les-video]").forEach(function (b) {
+        b.addEventListener("click", function () { tekenVideoLes(b.dataset.lesVideo); });
+      });
+    });
+  }
+
+  function bewaarBibliotheek() {
+    var nr = $("#v-bib").value.trim();
+    V.dienst.bibliotheek = nr;
+    $("#v-bib-stand").textContent = "Bezig";
+    sb.from("instellingen").update({ waarde: V.dienst }).eq("sleutel", "video_dienst").then(function (r) {
+      if (r.error) { $("#v-bib-stand").textContent = r.error.message; return; }
+      $("#v-bib-stand").textContent = "Opgeslagen";
+      toast("De bibliotheek is opgeslagen");
+    });
+  }
+
+  function tekenVideoLes(lesId) {
+    var l = V.lessen.find(function (x) { return x.id === lesId; });
+    if (!l) return;
+    var rijen = (Array.isArray(l.videos) ? l.videos : []).slice();
+    if (!rijen.length) rijen = [{ titel: "", video: "" }];
+
+    function teken() {
+      var uit = '<button type="button" class="terug" id="v-terug">' + IC.terug + "Terug naar de video's</button>" +
+        '<div class="kop"><h1>' + esc(l.titel) + "</h1>" +
+        "<p>Zet hier de video's die bij deze les horen, in de volgorde waarin ze op het scherm komen. " +
+        "Het nummer haal je bij Bunny uit het adres van de video, of met de knop Copy Video ID.</p></div>";
+
+      uit += '<div class="paneel"><div class="paneel-body" id="v-rijen">' +
+        rijen.map(function (v, i) {
+          return '<div class="veld-rij" style="margin-bottom:12px" data-rij="' + i + '">' +
+            '<div class="veld"><label>Titel boven de video</label>' +
+            '<input class="kies v-titel" type="text" placeholder="Verzamelplaats" value="' + esc(v.titel || "") + '"></div>' +
+            '<div class="veld"><label>Nummer van de video bij Bunny</label>' +
+            '<input class="kies v-id" type="text" placeholder="a1b2c3d4-..." value="' + esc(v.video || "") + '"></div>' +
+            '<div class="veld" style="flex:0 0 auto"><label>&nbsp;</label>' +
+            '<button type="button" class="btn btn-g btn-sm" data-weg="' + i + '">Weg</button></div></div>';
+        }).join("") + "</div>" +
+        '<div class="paneel-body" style="border-top:1px solid var(--line)">' +
+        '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="v-erbij">Regel erbij</button>' +
+        '<button type="button" class="btn btn-a" id="v-op">Opslaan</button>' +
+        '<span class="lead" id="v-stand"></span></div></div></div>';
+
+      $("#beheer-paneel").innerHTML = uit;
+      $("#v-terug").addEventListener("click", function () { naarBeheer("videos"); });
+      $("#v-erbij").addEventListener("click", function () { lees(); rijen.push({ titel: "", video: "" }); teken(); });
+      $("#v-op").addEventListener("click", bewaar);
+      $("#beheer-paneel").querySelectorAll("[data-weg]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          lees();
+          rijen.splice(Number(b.dataset.weg), 1);
+          if (!rijen.length) rijen = [{ titel: "", video: "" }];
+          teken();
+        });
+      });
+    }
+
+    function lees() {
+      var t = $("#beheer-paneel").querySelectorAll(".v-titel");
+      var d = $("#beheer-paneel").querySelectorAll(".v-id");
+      rijen = [];
+      for (var i = 0; i < d.length; i++) {
+        rijen.push({ titel: t[i].value.trim(), video: d[i].value.trim() });
+      }
+    }
+
+    function bewaar() {
+      lees();
+      // Een regel zonder nummer slaan we over, anders komt er een lege
+      // speler op het scherm te staan.
+      var schoon = rijen.filter(function (v) { return v.video; }).map(function (v) {
+        return { titel: v.titel || "", video: v.video };
+      });
+      $("#v-stand").textContent = "Bezig";
+      sb.rpc("zet_videos", { p_les: l.id, p_videos: schoon }).then(function (r) {
+        if (r.error) { $("#v-stand").textContent = r.error.message; return; }
+        l.videos = schoon;
+        $("#v-stand").textContent = "Opgeslagen";
+        toast(schoon.length + (schoon.length === 1 ? " video gekoppeld" : " video's gekoppeld"));
+        setTimeout(function () { naarBeheer("videos"); }, 700);
+      });
+    }
+
+    teken();
   }
 
   function tekenCertificaten() {

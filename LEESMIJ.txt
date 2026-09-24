@@ -38,6 +38,8 @@ VOOR HET BEHEER
   bedrijf doorgevoerd. Het certificaat blijft altijd van BHV Roden.
   Per bedrijf een knop die alle geldige certificaten in een mail
   naar de contactpersoon stuurt
+- Video's: het bibliotheeknummer van Bunny, en per les welke
+  video's erbij horen
 - Certificaten: nummers, datums en geldigheid
 - Mail: de wachtrij versturen en het logboek terugkijken
 - Systeemcontrole: klopt de database nog
@@ -46,10 +48,35 @@ Een contactpersoon van een klant ziet alleen de deelnemers van zijn
 eigen bedrijf en kan verder niets. Dat wordt in de database zelf
 afgedwongen, niet met een verborgen knop.
 
+EIGEN HOOFDSTUK PER KLANT
+-------------------------
+De basiscursus is voor iedereen gelijk. Daarnaast kan een klant een
+eigen hoofdstuk krijgen, direct na de introductie, met video's over
+de eigen locaties.
+
+Een module met een organisatie_id hoort bij dat bedrijf en is voor
+niemand anders zichtbaar. Dat wordt in de database afgedwongen, niet
+met een verborgen knop. Het telt gewoon mee in de voortgang.
+
+Het eerste is Hoofdstuk Westerkwartier, met vier lessen: Marum,
+Grootegast, Leek en Zuidhorn.
+
+DE VIDEO'S
+----------
+De bestanden staan bij Bunny Stream, niet bij ons. Wij bewaren
+alleen het nummer dat Bunny eraan geeft.
+
+Eenmalig: vul onder Beheer, tabblad Video's, het nummer van je
+bibliotheek in. Daarna koppel je per les welke video's erbij horen,
+met een titel erboven.
+
+Een les zonder video toont nog steeds de foto met de melding dat de
+video nog volgt.
+
 WAT ER NOG NIET IN ZIT
 ----------------------
-- De videos. Elke les toont nu een foto met de melding dat de
-  video nog volgt. De lesstof zelf is compleet.
+- De video's bij de basislessen. Die tonen nu een foto met de
+  melding dat de video nog volgt. De lesstof zelf is compleet.
 
 DE MAIL
 -------

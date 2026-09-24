@@ -156,6 +156,17 @@ a{color:var(--a)}
 .terug:hover{color:var(--ink)}
 .terug svg{width:13px;height:13px}
 
+
+/* ---------------- video ---------------- */
+.videos{display:flex;flex-direction:column;gap:26px;margin-bottom:28px}
+.videoblok{display:flex;flex-direction:column;gap:10px}
+.videokop{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.videokop h3{font-size:16px}
+.videokop .lead{font-size:12.5px}
+.video{position:relative;padding-top:56.25%;background:#0D1520;border:1px solid var(--line);border-radius:var(--radc);overflow:hidden;box-shadow:var(--sh-1)}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+@media (max-width:600px){.videos{gap:20px}.videokop h3{font-size:15px}}
+
 /* ---------------- chips en balkjes ---------------- */
 .chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:var(--rad)}
 .chip.af{background:var(--ok-soft);color:var(--ok)}
