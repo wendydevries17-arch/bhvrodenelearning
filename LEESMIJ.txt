@@ -61,6 +61,13 @@ met een verborgen knop. Het telt gewoon mee in de voortgang.
 Het eerste is Hoofdstuk Westerkwartier, met vier lessen: Marum,
 Grootegast, Leek en Zuidhorn.
 
+MEEKIJKEN ALS EEN KLANT
+-----------------------
+Boven Mijn cursus staat voor een beheerder een keuzebalk. Daar kies
+je een bedrijf en dan zie je de cursus precies zoals hun cursisten
+hem zien: hun kleuren, hun logo, hun hoofdstukken. Het verandert
+alleen jouw scherm, niet de database en niet je eigen voortgang.
+
 DE VIDEO'S
 ----------
 De bestanden staan bij Bunny Stream, niet bij ons. Wij bewaren

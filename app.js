@@ -312,7 +312,8 @@
     gebruiker: null, profiel: null,
     cursus: null, modules: [], lessen: [], evaluaties: {},
     toetsModules: {}, inschrijving: null, voortgang: {}, pogingen: [],
-    antwoorden: {}, video: null
+    antwoorden: {}, video: null,
+    alleModules: [], alleLessen: [], bedrijven: [], kijkAls: null
   };
 
   /* =====================================================================
@@ -344,10 +345,26 @@
     }).join("").toUpperCase();
   }
 
+  var EIGEN_STIJL = ["--p", "--p2", "--p-ink", "--a", "--a2", "--a-ink",
+                     "--a-soft", "--tint", "--rad", "--radc", "--waas-rgb"];
+
   function zetHuisstijl(org) {
     var s = document.documentElement.style;
     if (!org || org.is_eigenaar) {
-      /* BHV Roden zelf, of onbekend: laat de standaard staan. */
+      /* BHV Roden zelf, of onbekend: alles terug naar de eigen stijl.
+         Dat moet ook echt teruggezet worden, anders blijven de kleuren
+         van de vorige klant hangen als je terugschakelt. */
+      EIGEN_STIJL.forEach(function (k) { s.removeProperty(k); });
+      var b0 = document.querySelector(".balk");
+      if (b0) {
+        var lg = b0.querySelector("img");
+        if (lg) { lg.src = "img/logo-bhvroden.jpg"; lg.alt = "BHV Roden"; }
+        var nm = b0.querySelector(".naam");
+        if (nm) nm.innerHTML = "BHV Roden<span>Leeromgeving</span>";
+      }
+      var vd0 = $("#verzorgd-door");
+      if (vd0) vd0.hidden = true;
+      delete document.body.dataset.klant;
       return;
     }
     var p = hex(org.kleur_primair, "#0F1F3D");
@@ -487,18 +504,19 @@
           sb.from("vragen").select("id, les_id, module_id, soort, volgorde, vraag, opties").eq("cursus_id", S.cursus.id).in("soort", ["evaluatie", "toets"]).order("volgorde"),
           sb.from("voortgang").select("les_id, antwoorden, afgerond_op").eq("inschrijving_id", S.inschrijving),
           sb.from("pogingen").select("id, soort, module_id, score, geslaagd, ingeleverd_op").eq("inschrijving_id", S.inschrijving).order("gestart_op"),
-          sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle()
+          sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle(),
+          S.profiel.rol === "beheerder"
+            ? sb.from("organisaties").select("id, naam, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url").eq("actief", true).order("is_eigenaar", { ascending: false }).order("naam")
+            : Promise.resolve({ data: [] })
         ]);
       })
       .then(function (r) {
         r.forEach(function (x) { if (x.error) throw x.error; });
-        // Een beheerder mag klanthoofdstukken beheren, maar in zijn
-        // eigen cursus horen ze niet thuis. Hier houden we alleen de
-        // basis over plus het hoofdstuk van je eigen bedrijf.
-        var mijnOrg = S.profiel && S.profiel.organisatie_id;
-        S.modules = (r[0].data || []).filter(function (m) {
-          return !m.organisatie_id || m.organisatie_id === mijnOrg;
-        });
+        // We bewaren alles wat de database teruggeeft, en laten
+        // daarna alleen zien wat hoort bij het bedrijf waar je naar
+        // kijkt. Voor een cursist is dat altijd zijn eigen bedrijf.
+        S.alleModules = r[0].data || [];
+        S.modules = S.alleModules.filter(bijMijnBedrijf);
         if (!S.modules.length) throw new Error("geen-inhoud");
 
         S.evaluaties = {}; S.toetsModules = {};
@@ -521,17 +539,18 @@
         if (typeof w === "string") { try { w = JSON.parse(w); } catch (e) { w = null; } }
         S.video = w || null;
 
-        var ids = S.modules.map(function (m) { return m.id; });
+        // Alleen een beheerder kan van bedrijf wisselen om mee te kijken.
+        S.bedrijven = (r[5] && r[5].data) || [];
+
+        var ids = S.alleModules.map(function (m) { return m.id; });
         return sb.from("lessen")
           .select("id, module_id, titel, volgorde, duur_seconden, tekst, markeringen, foto_url, videos")
           .in("module_id", ids).order("volgorde");
       })
       .then(function (r) {
         if (r.error) throw r.error;
-        S.lessen = r.data || [];
-        S.modules.forEach(function (m) {
-          m.lessen = S.lessen.filter(function (l) { return l.module_id === m.id; });
-        });
+        S.alleLessen = r.data || [];
+        bouwModules();
         naarDashboard();
       })
       .catch(function (e) {
@@ -620,9 +639,75 @@
     return '<div class="videos">' + klaar.join("") + "</div>";
   }
 
+  /* ---------------------------------------------------------------------
+     Meekijken als een klant
+
+     Een beheerder heeft maar een account, maar moet wel kunnen zien
+     hoe de cursus er voor elk bedrijf uitziet. Daarom kan hij hier van
+     bedrijf wisselen. Dat verandert alleen wat er op zijn eigen scherm
+     staat: de kleuren en welke hoofdstukken erbij horen. Aan de
+     database verandert er niets, en zijn eigen voortgang ook niet.
+     --------------------------------------------------------------------- */
+  function kijkOrg() {
+    return S.kijkAls || (S.profiel && S.profiel.organisaties) || null;
+  }
+  function kijkOrgId() {
+    return S.kijkAls ? S.kijkAls.id : (S.profiel && S.profiel.organisatie_id);
+  }
+  function bijMijnBedrijf(m) {
+    return !m.organisatie_id || m.organisatie_id === kijkOrgId();
+  }
+  function bouwModules() {
+    S.modules = (S.alleModules || []).filter(bijMijnBedrijf);
+    S.lessen = (S.alleLessen || []).filter(function (l) {
+      return S.modules.some(function (m) { return m.id === l.module_id; });
+    });
+    S.modules.forEach(function (m) {
+      m.lessen = S.lessen.filter(function (l) { return l.module_id === m.id; });
+    });
+  }
+
+  function tekenKijkbalk() {
+    var balk = $("#kijk-balk");
+    if (!balk) return;
+    if (!S.profiel || S.profiel.rol !== "beheerder" || !S.bedrijven || S.bedrijven.length < 2) {
+      balk.hidden = true;
+      return;
+    }
+    var nu = kijkOrgId();
+    balk.hidden = false;
+    balk.innerHTML = '<span class="wat">Je bekijkt de cursus als <b>' +
+      esc((kijkOrg() && kijkOrg().naam) || "BHV Roden") + "</b></span>" +
+      '<span class="rest"><select id="kijk-kies" aria-label="Bekijk de cursus als">' +
+      S.bedrijven.map(function (o) {
+        return '<option value="' + esc(o.id) + '"' + (o.id === nu ? " selected" : "") + ">" +
+          esc(o.naam) + (o.is_eigenaar ? " (jouw eigen omgeving)" : "") + "</option>";
+      }).join("") + "</select>" +
+      (S.kijkAls ? '<button type="button" class="btn btn-g btn-sm" id="kijk-terug">Terug naar mijn eigen omgeving</button>' : "") +
+      "</span>";
+
+    $("#kijk-kies").addEventListener("change", function () {
+      kijkAlsBedrijf($("#kijk-kies").value);
+    });
+    if ($("#kijk-terug")) {
+      $("#kijk-terug").addEventListener("click", function () { kijkAlsBedrijf(null); });
+    }
+  }
+
+  function kijkAlsBedrijf(id) {
+    var eigen = S.profiel && S.profiel.organisatie_id;
+    S.kijkAls = (!id || id === eigen)
+      ? null
+      : (S.bedrijven || []).find(function (o) { return o.id === id; }) || null;
+    zetHuisstijl(kijkOrg());
+    bouwModules();
+    naarDashboard();
+  }
+
   function naarDashboard() {
     toon("view-dashboard");
     $("#nav-overzicht").hidden = false;
+    tekenKijkbalk();
 
     var rij = alleLessenOpVolgorde(), af = telAf();
     var pct = rij.length ? Math.round(af * 100 / rij.length) : 0;
