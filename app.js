@@ -558,6 +558,7 @@
           $("#wie").innerHTML = esc(naam || S.profiel.email) + "<span>" + esc(org) + "</span>";
           zetHuisstijl(S.profiel.organisaties);
           $("#nav-beheer").hidden = (S.profiel.rol !== "beheerder" && S.profiel.rol !== "contactpersoon");
+          if (S.profiel.rol === "beheerder") dagelijkseRonde();
 
           /* Een contactpersoon volgt zelf geen cursus, die gaat direct naar het beheer. */
           if (S.profiel.rol === "contactpersoon") { naarBeheer("deelnemers"); return null; }
@@ -1503,6 +1504,33 @@
     } catch (e) { /* stil */ }
   }
 
+  /* ---------------------------------------------------------------------
+     De dagelijkse ronde
+
+     Een keer per dag, zodra Wendy inlogt, kijkt het systeem zelf wie er
+     een herinnering moet krijgen: wie nog niet is begonnen, wie is
+     blijven steken, en wiens certificaat binnenkort verloopt. Wat eruit
+     komt gaat meteen de deur uit.
+
+     Het draait hoogstens een keer per dag per browser. Lukt het niet,
+     dan gebeurt er niets zichtbaars en probeert hij het morgen weer, of
+     eerder met de knop in het mailoverzicht.
+     --------------------------------------------------------------------- */
+  var RONDE = "bhv-ronde";
+
+  function dagelijkseRonde() {
+    var vandaag = new Date().toISOString().slice(0, 10);
+    try {
+      if (localStorage.getItem(RONDE) === vandaag) return;
+    } catch (e) { /* geen opslag, dan draait hij gewoon */ }
+
+    sb.rpc("zet_herinneringen").then(function (r) {
+      if (r.error) return;
+      try { localStorage.setItem(RONDE, vandaag); } catch (e) { /* stil */ }
+      if (r.data && r.data.totaal > 0) stuurWachtrijStil();
+    }).catch(function () { /* stil */ });
+  }
+
   /* =====================================================================
      BEHEER
      Alles wat hier gebeurt wordt door de database nog eens gecontroleerd.
@@ -2267,6 +2295,7 @@
   var MAIL_SOORT = {
     uitnodiging:         "Uitnodiging",
     herinnering:         "Herinnering",
+    verloopt:            "Verloopt bijna",
     certificaat:         "Certificaat",
     certificaten_bedrijf: "Naar contactpersoon"
   };
@@ -2282,15 +2311,16 @@
       var weg   = lijst.filter(function (x) { return x.status === "verstuurd"; });
 
       var uit = '<div class="kop"><h1>De <em>mail</em></h1>' +
-        "<p>Uitnodigingen en certificaten gaan vanzelf de deur uit. Hier zie je of dat gelukt is, " +
-        "en kun je nazenden wat is blijven hangen.</p></div>";
+        "<p>Uitnodigingen en certificaten gaan vanzelf de deur uit. Herinneringen worden een keer per dag " +
+        "klaargezet zodra jij inlogt. Hier zie je of alles is gelukt, en kun je nazenden wat is blijven hangen.</p></div>";
 
       function telSoort(k) {
         return lijst.filter(function (x) { return x.soort === k; }).length;
       }
       uit += '<div class="tegels">' +
         tegel(telSoort("uitnodiging"), "Uitnodigingen", "verstuurd en klaar") +
-        tegel(telSoort("herinnering"), "Herinneringen", "automatisch verstuurd") +
+        tegel(telSoort("herinnering"), "Herinneringen", "wie stilligt") +
+        tegel(telSoort("verloopt"), "Verloopt bijna", "dertig dagen vooraf") +
         tegel(telSoort("certificaat"), "Certificaten", "naar de deelnemer", "ok") +
         tegel(telSoort("certificaten_bedrijf"), "Naar bedrijven", "verzamelmails") +
         "</div>";
@@ -2301,10 +2331,11 @@
         tegel(mis.length, "Mislukt", mis.length ? "moet je bekijken" : "niets aan de hand", mis.length ? "mis" : "") +
         "</div>";
 
-      uit += '<div class="paneel"><div class="paneel-kop"><h2>Versturen</h2>' +
+      uit += '<div class="paneel"><div class="paneel-kop"><h2>Versturen</h2><div class="btn-row">' +
+        '<button type="button" class="btn btn-g btn-sm" id="m-ronde">Kijk nu wie een herinnering krijgt</button>' +
         '<button type="button" class="btn btn-p btn-sm" id="m-stuur"' + (klaar.length ? "" : " disabled") + ">" +
         (klaar.length ? "Verstuur " + klaar.length + " " + (klaar.length === 1 ? "mail" : "mails") : "Niets te versturen") +
-        "</button></div>" +
+        "</button></div></div>" +
         '<div class="paneel-body" id="m-uitslag">' +
         (klaar.length
           ? "<p>Er " + (klaar.length === 1 ? "staat " : "staan ") + klaar.length +
@@ -2360,6 +2391,7 @@
       $("#beheer-paneel").innerHTML = uit;
 
       if ($("#m-stuur")) $("#m-stuur").addEventListener("click", verstuurWachtrij);
+      if ($("#m-ronde")) $("#m-ronde").addEventListener("click", nuHerinneren);
       if ($("#m-ververs")) $("#m-ververs").addEventListener("click", function () { naarBeheer("mail"); });
       $("#beheer-paneel").querySelectorAll("[data-soort]").forEach(function (b) {
         b.addEventListener("click", function () { M.soort = b.dataset.soort; tekenMail(); });
@@ -2374,6 +2406,44 @@
           });
         });
       });
+    });
+  }
+
+  /* Hetzelfde als de dagelijkse ronde, maar dan omdat jij erom vraagt.
+     Wie deze week al een herinnering kreeg, krijgt er geen tweede. */
+  function nuHerinneren() {
+    var k = $("#m-ronde");
+    k.disabled = true;
+    k.textContent = "Bezig met kijken";
+    $("#m-uitslag").innerHTML = '<div class="laden"><span class="tol"></span>Bezig met kijken wie een herinnering krijgt</div>';
+
+    sb.rpc("zet_herinneringen").then(function (r) {
+      if (r.error) throw r.error;
+      var d = r.data || {};
+      try { localStorage.setItem(RONDE, new Date().toISOString().slice(0, 10)); } catch (e) { /* stil */ }
+
+      if (!d.totaal) {
+        $("#m-uitslag").innerHTML =
+          "<p><b>Niemand heeft nu een herinnering nodig.</b> Iedereen is op tijd begonnen, " +
+          "niemand ligt stil en er verloopt de komende dertig dagen geen certificaat.</p>";
+        k.disabled = false;
+        k.textContent = "Kijk nu wie een herinnering krijgt";
+        return;
+      }
+
+      $("#m-uitslag").innerHTML =
+        "<p><b>" + d.totaal + (d.totaal === 1 ? " herinnering" : " herinneringen") + " klaargezet.</b> " +
+        (d.niet_begonnen || 0) + " nog niet begonnen, " +
+        (d.blijven_steken || 0) + " blijven steken, " +
+        (d.verloopt_binnenkort || 0) + " certificaat verloopt binnenkort. " +
+        "Ze gaan nu de deur uit.</p>";
+      toast(d.totaal + (d.totaal === 1 ? " herinnering klaargezet" : " herinneringen klaargezet"));
+      setTimeout(verstuurWachtrij, 600);
+    }).catch(function (e) {
+      $("#m-uitslag").innerHTML =
+        '<div class="let mis"><b>Het kijken lukte niet</b>' + esc(e && e.message ? e.message : e) + "</div>";
+      k.disabled = false;
+      k.textContent = "Nog eens proberen";
     });
   }
 
