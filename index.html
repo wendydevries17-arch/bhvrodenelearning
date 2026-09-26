@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -86,9 +86,36 @@
         <div class="fout" id="login-fout" hidden></div>
 
         <button type="submit" class="btn btn-a btn-blok" id="login-knop">Inloggen</button>
-        <p class="lead" style="font-size:13px">Wachtwoord vergeten? Neem contact op via info@bhvroden.nl.</p>
+        <p class="lead" style="font-size:13px">Wachtwoord vergeten?
+          <button type="button" class="tekstknop" id="vergeten">Stuur mezelf een nieuwe</button>
+        </p>
       </form>
     </div>
+  </div>
+</div>
+
+<!-- ============ NIEUW WACHTWOORD KIEZEN ============ -->
+<div id="scherm-nieuwpw" hidden>
+  <div class="wrap wrap-smal">
+    <form class="blok" id="nieuwpw-form" autocomplete="on">
+      <div class="kop">
+        <h1>Kies een <em>nieuw wachtwoord</em></h1>
+        <p>Je bent via de link uit je mail binnengekomen. Kies hieronder een nieuw wachtwoord, dan kun je meteen verder.</p>
+      </div>
+      <div class="veld">
+        <label for="np-pw">Nieuw wachtwoord</label>
+        <input id="np-pw" type="password" autocomplete="new-password" required minlength="8">
+        <span class="hint">Minimaal acht tekens.</span>
+      </div>
+      <div class="veld">
+        <label for="np-pw2">Nog een keer, om zeker te weten</label>
+        <input id="np-pw2" type="password" autocomplete="new-password" required minlength="8">
+      </div>
+      <div class="fout" id="np-fout" hidden></div>
+      <div class="btn-row">
+        <button type="submit" class="btn btn-a" id="np-knop">Wachtwoord opslaan</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -224,6 +251,6 @@
 
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js"></script>
 </body>
 </html>

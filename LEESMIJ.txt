@@ -4,6 +4,9 @@ De leeromgeving van BHV Roden. Draait op bhvrodenelearning.nl.
 
 HOE DIT LIVE KOMT
 -----------------
+In _headers staat dat niets uit de cache mag komen zonder controle.
+Daardoor zie je een nieuwe versie meteen, zonder Cmd+Shift+R.
+
 Deze map is gekoppeld aan GitHub en GitHub is gekoppeld aan Netlify.
 Elke push zet de site binnen een minuut live.
 
@@ -18,13 +21,28 @@ De werkwijze:
 VOOR DE CURSIST
 ---------------
 - Aanmelden via de uitnodigingslink, met eigen wachtwoord
-- Inloggen
+- Inloggen, en zelf een nieuw wachtwoord aanvragen als hij het
+  kwijt is. Daar hoeft niemand iets voor te doen
 - Dashboard met voortgang per module
 - Dertien lessen met de lesteksten uit de database
 - Evaluatievragen met directe uitleg bij goed en fout
 - Kennistoets per module
 - Eindexamen, vragen worden geloot uit de examenbank
-- Certificaat op het scherm na het slagen
+- Certificaat op het scherm na het slagen, met het echte nummer en
+  een knop om af te drukken of als PDF op te slaan
+
+VANGNETTEN
+----------
+- Een lopende toets of examen wordt in de browser bewaard. Verversen,
+  een telefoon die de tab wegzwiept of een lege batterij kost geen
+  antwoorden meer
+- Wie tijdens een toets wegklikt krijgt eerst een vraag
+- Mislukt het opslaan van een les, dan zegt hij dat en blijft de knop
+  bruikbaar. Eerst ging dat stil mis
+- Goed en fout staan in het nakijkscherm ook in woorden, niet alleen
+  in kleur
+- Foutmeldingen voor de cursist verwijzen naar info@bhvroden.nl. De
+  technische melding ziet alleen een beheerder
 
 VOOR HET BEHEER
 ---------------

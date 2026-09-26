@@ -27,12 +27,18 @@
     return;
   }
   if (!window.supabase || !window.supabase.createClient) {
-    startfout("Supabase kon niet geladen worden", "De bibliotheek van Supabase is niet binnengekomen. Controleer je internetverbinding, of een adblocker die cdn.jsdelivr.net blokkeert.");
+    startfout("De leeromgeving kon niet geladen worden",
+      "Er ontbreekt een onderdeel. Dat komt meestal door een wegvallende internetverbinding of door een " +
+      "advertentieblokkeerder. Ververs de pagina, of probeer het in een ander venster. Blijft het zo, mail ons dan op info@bhvroden.nl.");
     return;
   }
   var sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
 
   function startfout(titel, tekst) {
+    // Eerst het scherm zichtbaar maken. Anders staart de bezoeker naar
+    // een witte pagina en leest hij de melding nooit.
+    var scherm = $("#scherm-login");
+    if (scherm) scherm.hidden = false;
     var doel = $("#login-fout");
     if (!doel) return;
     doel.hidden = false;
@@ -67,10 +73,42 @@
     document.body.appendChild(d);
     setTimeout(function () { d.remove(); }, 2800);
   }
+  /* Een melding die blijft staan tot je hem wegklikt. Een toast van
+     bijna drie seconden is prima voor "gelukt", maar te vluchtig voor
+     iets waar de gebruiker echt iets mee moet. */
+  function melding(titel, tekst, soort) {
+    var o = document.querySelector(".bericht");
+    if (o) o.remove();
+    var d = document.createElement("div");
+    d.className = "bericht" + (soort === "goed" ? " goed-bericht" : "");
+    d.setAttribute("role", "alertdialog");
+    d.setAttribute("aria-label", titel);
+    d.innerHTML = '<div class="bericht-in"><b>' + esc(titel) + "</b><p>" + esc(tekst) + "</p>" +
+      '<div class="btn-row"><button type="button" class="btn btn-a">Ik begrijp het</button></div></div>';
+    d.querySelector("button").addEventListener("click", function () { d.remove(); });
+    document.body.appendChild(d);
+    d.querySelector("button").focus();
+  }
+
+  /* De ruwe melding van de database is nuttig voor Wendy en onbegrijpelijk
+     voor een cursist. Die laten we dus alleen aan een beheerder zien. */
+  function technisch(fout) {
+    if (!fout || !S.profiel || S.profiel.rol !== "beheerder") return "";
+    return '<div class="klein" style="margin-top:8px;opacity:.75">Technisch: ' +
+      esc(fout.message || String(fout)) + "</div>";
+  }
+
   function toon(id) {
     ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-beheer"]
-      .forEach(function (v) { $("#" + v).hidden = (v !== id); });
+      .forEach(function (v) { var e = $("#" + v); if (e) e.hidden = (v !== id); });
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+    // Focus naar het nieuwe scherm, anders moet wie met het toetsenbord
+    // werkt bij elke stap opnieuw vanaf de bovenkant tabben.
+    var nieuw = $("#" + id);
+    if (nieuw) {
+      nieuw.setAttribute("tabindex", "-1");
+      try { nieuw.focus({ preventScroll: true }); } catch (e) { nieuw.focus(); }
+    }
   }
   /* Kopieren naar het klembord. Sommige browsers weigeren de nieuwe
      manier, bijvoorbeeld in een ingebouwd venster of zonder https.
@@ -146,7 +184,7 @@
       knop.disabled = false;
       knop.textContent = "Inloggen";
       fout.hidden = false;
-      fout.innerHTML = "<b>Geen verbinding</b>De leeromgeving kon Supabase niet bereiken. Melding: " + esc(err && err.message ? err.message : err);
+      fout.innerHTML = "<b>Geen verbinding</b>De leeromgeving kon niet worden bereikt. Controleer je internet en probeer het zo nog een keer.";
     });
   });
 
@@ -163,30 +201,112 @@
     if (m.indexOf("legacy api key") > -1 || m.indexOf("invalid api key") > -1)
       return "Supabase gebruikt in dit project de nieuwe publishable key, en in config.js staat nog de oude. Haal in Supabase onder Project Settings, API Keys de sleutel op die begint met sb_publishable_ en zet die in config.js.";
     if (m.indexOf("invalid login") > -1)
-      return "Het e-mailadres of het wachtwoord klopt niet.";
+      return "Het e-mailadres of het wachtwoord klopt niet. Weet je je wachtwoord niet meer, klik dan hieronder op Stuur mezelf een nieuwe.";
     if (m.indexOf("email not confirmed") > -1)
-      return "Dit account is aangemaakt zonder Auto Confirm User. Zet dat aan in Supabase onder Authentication, of bevestig het account daar handmatig.";
+      return "Dit account moet nog worden bevestigd. Laat het weten via info@bhvroden.nl, dan zetten we het open.";
     if (m.indexOf("failed to fetch") > -1)
-      return "De leeromgeving kon Supabase niet bereiken. Controleer de Project URL in config.js.";
+      return "Er is nu geen verbinding. Controleer je internet en probeer het zo nog een keer.";
     return esc(e.message || "Onbekende melding.");
   }
 
-  $("#uitloggen").addEventListener("click", function () {
-    sb.auth.signOut().then(function () { location.reload(); });
+  /* ---------------------------------------------------------------------
+     Wachtwoord vergeten
+
+     Supabase stuurt een mail met een link. Via die link komt de bezoeker
+     terug op de site met een tijdelijke sessie, en dan mag hij een nieuw
+     wachtwoord kiezen. Daarvoor is geen beheerder nodig, en Wendy hoeft
+     er niets voor te doen.
+     --------------------------------------------------------------------- */
+  $("#vergeten").addEventListener("click", function () {
+    var adres = $("#mail").value.trim();
+    var fout = $("#login-fout");
+    if (!adres || adres.indexOf("@") < 0) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>Vul eerst je e-mailadres in</b>Zet hierboven het adres waarop je de uitnodiging hebt gekregen, en klik dan opnieuw.";
+      $("#mail").focus();
+      return;
+    }
+    var knop = $("#vergeten");
+    knop.disabled = true;
+    knop.textContent = "Bezig";
+    sb.auth.resetPasswordForEmail(adres, { redirectTo: location.origin + location.pathname })
+      .then(function () {
+        fout.hidden = true;
+        melding("Kijk in je mail",
+          "Als er een account bestaat op " + adres + ", dan staat er nu een mail klaar met een link " +
+          "om een nieuw wachtwoord te kiezen. Kijk ook even in je map ongewenste mail.", "goed");
+      })
+      .catch(function () {
+        fout.hidden = false;
+        fout.innerHTML = "<b>Het versturen lukte niet</b>Probeer het zo nog een keer, of mail ons op info@bhvroden.nl.";
+      })
+      .then(function () { knop.disabled = false; knop.textContent = "Stuur mezelf een nieuwe"; });
   });
-  $("#nav-overzicht").addEventListener("click", function () { naarDashboard(); });
-  $("#nav-beheer").addEventListener("click", function () { naarBeheer("overzicht"); });
+
+  $("#nieuwpw-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var a = $("#np-pw").value, b = $("#np-pw2").value;
+    var fout = $("#np-fout");
+    fout.hidden = true;
+    if (a.length < 8) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>Te kort</b>Kies een wachtwoord van minimaal acht tekens.";
+      return;
+    }
+    if (a !== b) {
+      fout.hidden = false;
+      fout.innerHTML = "<b>De twee wachtwoorden zijn niet gelijk</b>Typ ze allebei nog een keer.";
+      return;
+    }
+    var knop = $("#np-knop");
+    knop.disabled = true; knop.textContent = "Bezig met opslaan";
+    sb.auth.updateUser({ password: a }).then(function (r) {
+      knop.disabled = false; knop.textContent = "Wachtwoord opslaan";
+      if (r.error) {
+        fout.hidden = false;
+        fout.innerHTML = "<b>Het opslaan lukte niet</b>" + esc(r.error.message || "") +
+          " Vraag anders een nieuwe link aan op het inlogscherm.";
+        return;
+      }
+      $("#scherm-nieuwpw").hidden = true;
+      naarApp();
+      toast("Je nieuwe wachtwoord staat erin");
+    });
+  });
+
+  $("#uitloggen").addEventListener("click", function () {
+    if (!magWeg()) return;
+    sb.auth.signOut().then(function () { vergeetToets(); location.reload(); });
+  });
+  $("#nav-overzicht").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
+  $("#nav-beheer").addEventListener("click", function () { if (magWeg()) naarBeheer("overzicht"); });
   $("#les-terug").addEventListener("click", function () { naarDashboard(); });
-  $("#toets-terug").addEventListener("click", function () { naarDashboard(); });
+  $("#toets-terug").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
   $("#beheer-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-tab]");
     if (b) naarBeheer(b.dataset.tab);
   });
 
+  // Het tabblad sluiten tijdens een toets: de browser vraagt het dan zelf.
+  window.addEventListener("beforeunload", function (e) {
+    if (!toetsLoopt()) return;
+    e.preventDefault();
+    e.returnValue = "";
+  });
+
   /* Een uitnodigingslink gaat voor op alles. */
   var TOKEN = (new URLSearchParams(location.search)).get("token");
+
+  // Komt iemand binnen via de link uit de wachtwoordmail, dan zet Supabase
+  // dat in het stukje achter het hekje in het adres. Dan tonen we niet de
+  // leeromgeving maar het scherm om een nieuw wachtwoord te kiezen.
+  var HERSTEL = /type=recovery/.test(location.hash || "");
+
   if (TOKEN) {
     startAanmelden(TOKEN);
+  } else if (HERSTEL) {
+    $("#scherm-nieuwpw").hidden = false;
+    sb.auth.onAuthStateChange(function () { /* sessie komt binnen, verder niets */ });
   } else {
     sb.auth.getSession().then(function (res) {
       if (res.data && res.data.session) naarApp();
@@ -197,7 +317,11 @@
   function naarApp() {
     $("#scherm-login").hidden = true;
     $("#scherm-aanmelden").hidden = true;
+    $("#scherm-nieuwpw").hidden = true;
     $("#scherm-app").hidden = false;
+    if (location.hash) {
+      try { history.replaceState(null, "", location.pathname); } catch (e) { /* niets */ }
+    }
     toon("view-laden");
     laadAlles();
   }
@@ -282,7 +406,8 @@
       }
       if (!res.data || !res.data.session) {
         mislukt("Nog even bevestigen",
-          "Je account is aangemaakt, maar Supabase wacht op een bevestiging per mail. Zet in Supabase onder Authentication de optie Confirm email uit, of bevestig het account daar handmatig.");
+          "Je account is aangemaakt, maar er wacht nog een bevestiging. " +
+          'Laat het weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>, dan zetten we het meteen open.');
         return null;
       }
       return koppelEnStart();
@@ -399,9 +524,19 @@
   }
 
   function storing(titel, tekst) {
+    // Niet de hele view overschrijven: dan zijn de vaste onderdelen weg
+    // en loopt een volgende naarDashboard() stuk.
     toon("view-dashboard");
-    $("#view-dashboard").innerHTML =
-      '<div class="kop"><h1>' + esc(titel) + '</h1></div><div class="let"><b>Wat er aan de hand is</b>' + tekst + "</div>";
+    var kb = $("#kijk-balk"); if (kb) kb.hidden = true;
+    var mods = $("#dash-modules");
+    if (mods) {
+      mods.innerHTML = '<div class="kop"><h1>' + esc(titel) + "</h1></div>" +
+        '<div class="let"><b>Wat er aan de hand is</b>' + tekst + "</div>";
+    }
+    var hero = document.querySelector("#view-dashboard .hero");
+    if (hero) hero.hidden = true;
+    var voet = document.querySelector("#view-dashboard .voet");
+    if (voet) voet.hidden = true;
   }
 
   function laadAlles() {
@@ -439,7 +574,8 @@
     }).catch(function (e) {
       if (e && e.message === "geen-profiel") {
         storing("Geen profiel gevonden",
-          "Je kunt wel inloggen, maar er staat geen profiel bij dit account. Draai <b>03_gebruikers.sql</b> in Supabase, dat is stap 6 op de installatiepagina.");
+          "Je kunt wel inloggen, maar je account is nog niet aan een cursus gekoppeld. " +
+          'Laat het even weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>, dan zetten we het goed.');
       } else {
         storing("Er ging iets mis bij het ophalen",
           "Melding van de database: " + esc(e && e.message ? e.message : e));
@@ -551,18 +687,23 @@
         if (r.error) throw r.error;
         S.alleLessen = r.data || [];
         bouwModules();
-        naarDashboard();
+        tekenToc();
+        // Stond er nog een toets open, dan pakken we die meteen weer op.
+        if (!hervatToets()) naarDashboard();
       })
       .catch(function (e) {
         if (e && e.message === "geen-cursus") {
           storing("Er staat nog geen cursus klaar",
-            "De database is leeg. Draai <b>04_cursusinhoud.sql</b> in Supabase, dat is stap 7 op de installatiepagina.");
+            "Er staat nog geen cursus voor je klaar. " +
+            'Laat het weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>.');
         } else if (e && e.message === "geen-inhoud") {
           storing("De cursus heeft nog geen modules",
-            "Draai <b>04_cursusinhoud.sql</b> opnieuw in Supabase, stap 7 op de installatiepagina.");
+            "Er staat nog geen inhoud klaar voor deze cursus. " +
+            'Laat het weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>.');
         } else if (e && /schrijf_mij_in|function|does not exist/i.test(e.message || "")) {
           storing("De database mist nog een functie",
-            "Melding: " + esc(e.message) + ". Draai <b>06_cursist.sql</b>, dat is stap 9 op de installatiepagina.");
+            "Probeer het zo nog een keer. Blijft het misgaan, laat het dan weten via " +
+            '<a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>.' + technisch(e));
         } else {
           storing("Er ging iets mis bij het ophalen",
             "Melding van de database: " + esc(e && e.message ? e.message : e));
@@ -581,9 +722,13 @@
     return S.pogingen.some(function (p) { return p.soort === "examen" && p.geslaagd; });
   }
   function moduleHeeftToets(m) { return !!S.toetsModules[m.id]; }
+  // Een module zonder lessen kan niet worden afgerond en zou het examen
+  // dus voor altijd op slot zetten. Die slaan we over.
+  function moduleTelt(m) { return !!(m && m.lessen && m.lessen.length); }
+
   function moduleLessenAf(m) { return m.lessen.length > 0 && m.lessen.every(function (l) { return lesAf(l.id); }); }
   function moduleAf(m) { return moduleLessenAf(m) && (!moduleHeeftToets(m) || toetsGehaald(m.id)); }
-  function examenOpen() { return S.modules.every(moduleAf); }
+  function examenOpen() { return S.modules.filter(moduleTelt).every(moduleAf); }
 
   function alleLessenOpVolgorde() {
     var rij = [];
@@ -704,6 +849,17 @@
     naarDashboard();
   }
 
+  /* Klikt iemand tijdens een toets op Mijn cursus of Uitloggen, dan
+     vragen we het eerst. Een half examen weggooien met een misklik is
+     het soort ding waar je een klant mee kwijtraakt. */
+  function magWeg() {
+    if (!toetsLoopt()) return true;
+    return window.confirm(
+      "Je bent nu bezig met een " + (T.soort === "examen" ? "examen" : "kennistoets") + ".\n\n" +
+      "Je antwoorden worden bewaard, maar je moet hem wel opnieuw openen om verder te gaan. " +
+      "Wil je hier echt weg?");
+  }
+
   function naarDashboard() {
     toon("view-dashboard");
     $("#nav-overzicht").hidden = false;
@@ -753,6 +909,9 @@
         uit += '<button type="button" class="btn ' + (kanOpen ? "btn-p" : "btn-g") + '" data-les="' + eerste.id + '"' +
           (kanOpen ? "" : " disabled") + ">" +
           (lAf === 0 ? "Beginnen" : lAf === m.lessen.length ? "Lessen teruglezen" : "Verder gaan") + "</button>";
+        if (!kanOpen) uit += '<span class="slot">' + IC.slot + "De cursus loopt op volgorde. Rond eerst het deel hierboven af</span>";
+      } else {
+        uit += '<span class="slot">' + IC.slot + "Aan dit onderdeel wordt nog gewerkt</span>";
       }
       if (moduleHeeftToets(m)) {
         var tOpen = moduleLessenAf(m);
@@ -771,7 +930,7 @@
     uit += '<div class="kaart"><div class="kaart-body">' +
       (exOk ? '<span class="chip af">Geslaagd</span>' : exOpen ? '<span class="chip bezig">Klaar om te maken</span>' : '<span class="chip nieuw">Nog op slot</span>') +
       "<h3>Eindexamen</h3>" +
-      '<div class="kaart-meta"><span>' + S.cursus.aantal_examenvragen + " vragen</span><span>" + S.cursus.slaagcriterium + "% nodig</span></div>" +
+      '<div class="kaart-meta"><span>' + (S.cursus.aantal_examenvragen || T_EXAMEN_STANDAARD) + " vragen</span><span>" + S.cursus.slaagcriterium + "% nodig</span></div>" +
       "<p class=\"lead\">De vragen worden geloot uit de examenbank, dus elke poging is anders. Haal je het niet, dan mag je het opnieuw proberen.</p>" +
       '</div><div class="kaart-foot">' +
       '<button type="button" class="btn ' + (exOpen ? "btn-a" : "btn-g") + '" id="start-examen"' + (exOpen ? "" : " disabled") + ">" +
@@ -943,14 +1102,27 @@
 
   function beantwoord(l, vragen, vraagId, keuze) {
     if (S.antwoorden[l.id][vraagId] && S.antwoorden[l.id][vraagId].juist_index != null) return;
+    // Meteen vastzetten, niet pas als het antwoord terug is. Anders kun je
+    // op een trage verbinding twee keer antwoorden en wint de toevallige
+    // volgorde waarin de twee antwoorden terugkomen.
+    S.antwoorden[l.id][vraagId] = { keuze: keuze, bezig: true };
+    var vdNu = document.querySelector('.vraag[data-v="' + vraagId + '"]');
+    if (vdNu) vdNu.querySelectorAll(".optie").forEach(function (b) { b.disabled = true; });
+
     sb.rpc("controleer_antwoord", { p_vraag: vraagId, p_keuze: keuze }).then(function (r) {
-      if (r.error || !r.data) { toast("Nakijken lukte niet"); return; }
+      if (r.error || !r.data) {
+        delete S.antwoorden[l.id][vraagId];
+        if (vdNu) vdNu.querySelectorAll(".optie").forEach(function (b) { b.disabled = false; });
+        melding("Je antwoord kwam niet aan",
+          "Waarschijnlijk viel je verbinding even weg. Kies je antwoord nog een keer.");
+        return;
+      }
       S.antwoorden[l.id][vraagId] = {
         keuze: keuze, juist: r.data.juist, juist_index: r.data.juist_index, uitleg: r.data.uitleg
       };
       schilderVraag($("#ev-vragen").querySelector('[data-v="' + vraagId + '"]'), S.antwoorden[l.id][vraagId]);
       werkKlaarknopBij(l, vragen);
-      bewaarAntwoorden(l);
+      bewaarAntwoorden(l).catch(function () { /* komt bij het afronden opnieuw langs */ });
     });
   }
 
@@ -989,15 +1161,23 @@
     if (afronden) rij.afgerond_op = new Date().toISOString();
     else if (S.voortgang[l.id] && S.voortgang[l.id].afgerond_op) rij.afgerond_op = S.voortgang[l.id].afgerond_op;
     return sb.from("voortgang").upsert(rij, { onConflict: "inschrijving_id,les_id" }).then(function (r) {
-      if (r.error) { console.warn("voortgang", r.error); return; }
+      if (r.error) {
+        console.warn("voortgang", r.error);
+        // Doorgeven aan de aanroeper. Stil mislukken betekende dat de
+        // cursist "Les afgerond" te zien kreeg en toch bleef hangen.
+        throw new Error("opslaan-mislukt");
+      }
       S.voortgang[l.id] = { les_id: l.id, antwoorden: kort, afgerond_op: rij.afgerond_op || null };
     });
   }
 
   function rondLesAf(l, vragen) {
     var knop = $("#les-klaar");
+    var was = knop.textContent;
     knop.disabled = true;
+    knop.textContent = "Bezig met opslaan";
     bewaarAntwoorden(l, true).then(function () {
+      knop.textContent = was;
       var rij = alleLessenOpVolgorde();
       var i = rij.findIndex(function (x) { return x.id === l.id; });
       var volgende = rij[i + 1];
@@ -1015,6 +1195,12 @@
       } else {
         naarDashboard();
       }
+    }).catch(function () {
+      knop.disabled = false;
+      knop.textContent = was;
+      melding("Je les is nog niet opgeslagen",
+        "Het lukte niet om je voortgang te bewaren. Waarschijnlijk viel je verbinding even weg. " +
+        "Je antwoorden staan er nog. Probeer het zo nog een keer, dan gaat het meestal wel goed.");
     });
   }
 
@@ -1022,6 +1208,62 @@
      TOETS EN EXAMEN
      ===================================================================== */
   var T = null;
+  var TOETS_SLEUTEL = "bhv-toets";
+  var T_EXAMEN_STANDAARD = 30;
+
+  /* ---------------------------------------------------------------------
+     Een lopende toets vasthouden
+
+     De vragen en de gegeven antwoorden stonden alleen in het geheugen
+     van de pagina. Een telefoon die de tab wegzwiept, een verversing of
+     een lege batterij betekende dan dat een half examen weg was. Nu
+     bewaren we de poging in de browser, en pakken we hem weer op.
+     Het nakijken blijft in de database gebeuren, hier staat nooit een
+     juist antwoord.
+     --------------------------------------------------------------------- */
+  function bewaarToets() {
+    if (!T) return;
+    try {
+      localStorage.setItem(TOETS_SLEUTEL, JSON.stringify({
+        inschrijving: S.inschrijving, soort: T.soort, module: T.module,
+        poging: T.poging, drempel: T.drempel, vragen: T.vragen,
+        keuzes: T.keuzes, op: Date.now()
+      }));
+    } catch (e) { /* prive-venster of volle opslag, dan gewoon zonder */ }
+  }
+  function vergeetToets() {
+    try { localStorage.removeItem(TOETS_SLEUTEL); } catch (e) { /* niets */ }
+  }
+  function bewaardeToets() {
+    try {
+      var b = JSON.parse(localStorage.getItem(TOETS_SLEUTEL) || "null");
+      if (!b || b.inschrijving !== S.inschrijving || !b.poging) return null;
+      // Ouder dan een dag laten we los, dan is hij toch niet meer bruikbaar.
+      if (Date.now() - (b.op || 0) > 24 * 60 * 60 * 1000) { vergeetToets(); return null; }
+      if (!Array.isArray(b.vragen) || !b.vragen.length) { vergeetToets(); return null; }
+      return b;
+    } catch (e) { return null; }
+  }
+  function toetsLoopt() {
+    return !!(T && T.vragen && T.vragen.length && !T.klaar);
+  }
+
+  function hervatToets() {
+    var b = bewaardeToets();
+    if (!b) return false;
+    T = {
+      soort: b.soort, module: b.module, poging: b.poging,
+      drempel: b.drempel, vragen: b.vragen, keuzes: b.keuzes || {}
+    };
+    toon("view-toets");
+    tekenToets();
+    var n = Object.keys(T.keuzes).length;
+    melding("Je had nog een toets openstaan",
+      "Je bent verder gegaan waar je gebleven was. " +
+      (n ? "Je " + n + " ingevulde " + (n === 1 ? "antwoord staat" : "antwoorden staan") + " er nog."
+         : "Je had nog geen vragen beantwoord."), "goed");
+    return true;
+  }
 
   function startToets(soort, moduleId) {
     toon("view-toets");
@@ -1031,15 +1273,22 @@
 
     sb.rpc("start_toets", arg).then(function (r) {
       if (r.error || !r.data) {
-        $("#toets-paneel").innerHTML = '<div class="let"><b>De toets kon niet starten</b>' +
-          esc(r.error ? r.error.message : "Onbekende melding") +
-          ". Mist de functie, draai dan <b>06_cursist.sql</b> in Supabase, stap 9 op de installatiepagina.</div>";
+        $("#toets-paneel").innerHTML =
+          '<div class="let"><b>De toets kon nu niet starten</b>' +
+          "Probeer het zo nog een keer. Blijft het misgaan, laat het dan weten via " +
+          '<a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>.' +
+          technisch(r.error) + "</div>" +
+          '<div class="btn-row" style="margin-top:16px">' +
+          '<button type="button" class="btn btn-g" id="t-terug2">Terug naar het overzicht</button></div>';
+        var tb = $("#t-terug2");
+        if (tb) tb.addEventListener("click", function () { naarDashboard(); });
         return;
       }
       T = {
         soort: soort, module: moduleId, poging: r.data.poging,
         drempel: r.data.drempel, vragen: r.data.vragen || [], keuzes: {}
       };
+      bewaarToets();
       tekenToets();
     });
   }
@@ -1066,9 +1315,16 @@
     $("#toets-paneel").innerHTML = uit;
 
     $("#t-vragen").querySelectorAll(".vraag").forEach(function (vd) {
+      // Bij een hervatte toets de eerder gegeven antwoorden weer aanzetten.
+      var eerder = T.keuzes[vd.dataset.v];
+      if (eerder != null) {
+        var knoppen = vd.querySelectorAll(".optie");
+        if (knoppen[eerder]) knoppen[eerder].classList.add("gekozen");
+      }
       vd.querySelectorAll(".optie").forEach(function (b, k) {
         b.addEventListener("click", function () {
           T.keuzes[vd.dataset.v] = k;
+          bewaarToets();
           vd.querySelectorAll(".optie").forEach(function (x) { x.classList.remove("gekozen"); });
           b.classList.add("gekozen");
           var n = Object.keys(T.keuzes).length;
@@ -1077,6 +1333,9 @@
         });
       });
     });
+    var alGedaan = Object.keys(T.keuzes).length;
+    $("#t-stand").textContent = alGedaan + " van " + T.vragen.length + " beantwoord";
+    $("#t-lever").disabled = alGedaan < T.vragen.length;
     $("#t-lever").addEventListener("click", leverIn);
   }
 
@@ -1086,10 +1345,14 @@
     sb.rpc("lever_in", { p_poging: T.poging, p_antwoorden: T.keuzes }).then(function (r) {
       if (r.error || !r.data) {
         knop.disabled = false; knop.textContent = "Inleveren en nakijken";
-        toast("Nakijken lukte niet: " + (r.error ? r.error.message : "onbekend"));
+        melding("Het inleveren lukte niet",
+          "Je antwoorden staan er nog allemaal, er is niets kwijt. Waarschijnlijk viel je verbinding " +
+          "even weg. Druk zo nog een keer op inleveren.");
         return;
       }
       var u = r.data;
+      T.klaar = true;
+      vergeetToets();
       S.pogingen.push({
         id: T.poging, soort: T.soort, module_id: T.module,
         score: u.score, geslaagd: u.geslaagd, ingeleverd_op: new Date().toISOString()
@@ -1134,12 +1397,21 @@
         return '<div class="vraag">' +
           '<div class="vraag-t"><span class="n">' + (i + 1) + ".</span>" + esc(v.vraag) + "</div>" +
           '<div class="opties">' + opties.map(function (o, k) {
-            var kl = k === n.juist_index ? " juist" : (k === mijn ? " onjuist" : "");
-            return '<button type="button" class="optie' + kl + '" disabled>' +
-              '<span class="k">' + "ABCDEF"[k] + "</span><span>" + esc(o) + "</span></button>";
+            // Niet alleen kleur: er staat ook in woorden bij wat er aan de
+            // hand is, zodat iemand die kleuren slecht onderscheidt het ook ziet.
+            var juist = k === n.juist_index;
+            var vanMij = k === mijn;
+            var kl = juist ? " juist" : (vanMij ? " onjuist" : "");
+            var merk = juist ? '<span class="merk">Juiste antwoord</span>'
+                     : vanMij ? '<span class="merk">Jouw antwoord</span>' : "";
+            return '<button type="button" class="optie' + kl + '" disabled' +
+              (juist || vanMij ? ' aria-label="' + esc(o) + ", " + (juist ? "juiste antwoord" : "jouw antwoord, niet goed") + '"' : "") +
+              ">" + '<span class="k">' + "ABCDEF"[k] + "</span><span>" + esc(o) + merk + "</span></button>";
           }).join("") + "</div>" +
-          (n.uitleg ? '<div class="terugkoppeling ' + (mijn === n.juist_index ? "ja" : "nee") + '">' +
-            (mijn === n.juist_index ? IC.vink : IC.kruis) + "<span>" + esc(n.uitleg) + "</span></div>" : "") +
+          '<div class="terugkoppeling ' + (mijn === n.juist_index ? "ja" : "nee") + '">' +
+            (mijn === n.juist_index ? IC.vink : IC.kruis) +
+            "<span><b>" + (mijn === n.juist_index ? "Goed" : "Niet goed") + ".</b> " +
+            esc(n.uitleg || "") + "</span></div>" +
           "</div>";
       }).join("") + "</div></div>";
 
@@ -1158,32 +1430,58 @@
      ===================================================================== */
   function toonCertificaat() {
     toon("view-toets");
+    $("#toets-paneel").innerHTML = '<div class="laden"><span class="tol"></span>Je certificaat wordt opgehaald</div>';
+    // Het echte certificaat staat in de database, met een vast nummer en
+    // een vastgelegde geldigheid. Dat hoort hier te staan, niet een
+    // datum die we zelf even uitrekenen.
+    // Expliciet op het eigen profiel filteren. De database laat een
+    // cursist toch al niets anders zien, maar een beheerder wel, en die
+    // wil hier zijn eigen certificaat zien en niet dat van een ander.
+    sb.from("certificaten")
+      .select("nummer, naam_op_certificaat, geboortedatum, cursus_titel, score, behaald_op, geldig_tot")
+      .eq("profiel_id", S.gebruiker.id)
+      .is("ingetrokken_op", null).order("behaald_op", { ascending: false }).limit(1)
+      .then(function (r) { tekenCertificaat((r.data && r.data[0]) || null); })
+      .catch(function () { tekenCertificaat(null); });
+  }
+
+  function tekenCertificaat(c) {
     var p = S.profiel;
     var beste = S.pogingen.filter(function (x) { return x.soort === "examen" && x.geslaagd; }).pop();
-    var datum = beste && beste.ingeleverd_op ? beste.ingeleverd_op : new Date().toISOString();
-    var tot = new Date(datum); tot.setFullYear(tot.getFullYear() + 1);
+    var datum = (c && c.behaald_op) || (beste && beste.ingeleverd_op) || new Date().toISOString();
+    var tot;
+    if (c && c.geldig_tot) { tot = c.geldig_tot; }
+    else { var d = new Date(datum); d.setFullYear(d.getFullYear() + 1); tot = d.toISOString(); }
+    var score = c && c.score != null ? c.score : (beste ? beste.score : null);
 
     $("#toets-paneel").innerHTML =
       '<div class="kop"><h1>Je <em>certificaat</em></h1>' +
-      "<p>Dit is het theoriecertificaat van BHV Roden. Het definitieve bestand krijg je per mail zodra de mailkoppeling aanstaat. Het praktijkgedeelte volgt daarna apart.</p></div>" +
+      "<p>Dit is het theoriecertificaat van BHV Roden. Je hebt het ook als PDF per mail gekregen, " +
+      "op het adres waarop je bent uitgenodigd. Het praktijkgedeelte volgt daarna apart.</p></div>" +
       '<div class="cert-scroll"><div class="cert">' +
         '<div class="cert-top"><img src="img/logo-bhv-cert.png" alt="BHV Roden">' +
-        '<div class="cert-zegel"><strong>Certificaatnummer volgt</strong><br>Uitgegeven door BHV Roden<br>Erkend opleider NIBHV</div></div>' +
+        '<div class="cert-zegel"><strong>' + esc(c && c.nummer ? c.nummer : "Nummer volgt") +
+        "</strong><br>Uitgegeven door BHV Roden<br>Erkend opleider NIBHV</div></div>" +
         "<h2>Certificaat</h2>" +
-        '<div class="cert-naam">' + esc([p.voornaam, p.achternaam].join(" ")) + "</div>" +
+        '<div class="cert-naam">' + esc((c && c.naam_op_certificaat) || [p.voornaam, p.achternaam].filter(Boolean).join(" ")) + "</div>" +
         '<p class="cert-regel">heeft met goed gevolg het theoriegedeelte afgerond van de opleiding</p>' +
-        '<div class="cert-cursus">' + esc(S.cursus.titel) + "</div>" +
+        '<div class="cert-cursus">' + esc((c && c.cursus_titel) || (S.cursus && S.cursus.titel) || "") + "</div>" +
         '<div class="cert-grid">' +
-          '<div><div class="k">Geboortedatum</div><div class="v">' + esc(datumNL(p.geboortedatum)) + "</div></div>" +
+          '<div><div class="k">Geboortedatum</div><div class="v">' + esc(datumNL((c && c.geboortedatum) || p.geboortedatum)) + "</div></div>" +
           '<div><div class="k">Afgerond op</div><div class="v">' + esc(datumNL(datum)) + "</div></div>" +
-          '<div><div class="k">Geldig tot</div><div class="v">' + esc(datumNL(tot.toISOString())) + "</div></div>" +
-          '<div><div class="k">Resultaat</div><div class="v">' + (beste ? beste.score + "%" : "") + "</div></div>" +
+          '<div><div class="k">Geldig tot</div><div class="v">' + esc(datumNL(tot)) + "</div></div>" +
+          '<div><div class="k">Resultaat</div><div class="v">' + (score != null ? score + "%" : "") + "</div></div>" +
         "</div>" +
         '<div class="cert-foot"><div class="cert-hand"><img src="img/handtekening.png" alt="">' +
         '<div class="lijn"></div>Dirk Jan Mollema, BHV Roden</div></div>' +
       "</div></div>" +
-      '<div class="btn-row" style="margin-top:20px"><button type="button" class="btn btn-p" id="cert-terug">Terug naar het overzicht</button></div>';
+      '<div class="btn-row" style="margin-top:20px">' +
+      '<button type="button" class="btn btn-p" id="cert-terug">Terug naar het overzicht</button>' +
+      '<button type="button" class="btn btn-g" id="cert-print">Afdrukken of opslaan als PDF</button></div>' +
+      '<p class="lead" style="margin-top:12px">Het officiele bestand met de handtekening staat in je mail. ' +
+      "Kun je die niet vinden, kijk dan ook even in je map ongewenste mail.</p>";
     $("#cert-terug").addEventListener("click", naarDashboard);
+    $("#cert-print").addEventListener("click", function () { window.print(); });
   }
 
 

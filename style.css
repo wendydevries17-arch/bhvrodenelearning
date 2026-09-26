@@ -183,6 +183,22 @@ a{color:var(--a)}
 .kijkbalk .rest{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 @media (max-width:620px){.kijkbalk .rest{margin-left:0;width:100%}.kijkbalk select{width:100%}}
 
+
+/* ---------------- bericht dat blijft staan ---------------- */
+.bericht{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:20px;background:rgba(15,20,26,.42)}
+.bericht-in{background:var(--surface);border-radius:var(--radc);padding:24px 26px;max-width:460px;box-shadow:var(--sh-3);border-top:4px solid var(--err)}
+.bericht.goed-bericht .bericht-in{border-top-color:var(--ok)}
+.bericht-in b{display:block;font-family:var(--fh);font-size:18px;margin-bottom:8px}
+.bericht-in p{font-size:14.5px;color:var(--ink-2);margin-bottom:18px}
+
+/* Goed en fout ook in woorden, niet alleen in kleur */
+.optie .merk{display:block;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;margin-top:4px;opacity:.85}
+.optie.juist .merk{color:var(--ok)}
+.optie.onjuist .merk{color:var(--err)}
+
+.tekstknop{background:none;border:0;padding:0;color:var(--a);font:inherit;font-size:inherit;text-decoration:underline;cursor:pointer}
+.tekstknop:hover{color:var(--a2)}
+
 /* ---------------- chips en balkjes ---------------- */
 .chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:4px 10px;border-radius:var(--rad)}
 .chip.af{background:var(--ok-soft);color:var(--ok)}
