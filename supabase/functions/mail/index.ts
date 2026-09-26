@@ -355,6 +355,32 @@ function herinneringsmail(r: Record<string, unknown>, site: string) {
   };
 }
 
+function verloopmail(r: Record<string, unknown>, site: string) {
+  const naam = r.voornaam ? `Hallo ${veilig(r.voornaam)},` : "Hallo,";
+  const binnen = `
+    <p style="margin:0 0 14px;">${naam}</p>
+    <p style="margin:0 0 14px;">Bijna een jaar geleden haalde je je certificaat bedrijfshulpverlening.
+      Dat loopt binnenkort af. Tijd dus voor de herhaling.</p>
+    ${feiten([
+      ["Certificaat", String(r.nummer ?? "")],
+      ["Cursus", String(r.cursus ?? "")],
+      ["Behaald op", datumNL(r.behaald_op)],
+      ["Geldig tot", datumNL(r.geldig_tot)],
+    ])}
+    <p style="margin:0 0 14px;">Een BHV'er gaat ongeveer een keer per jaar op herhaling. Niet omdat het
+      moet van een papiertje, maar omdat je handelingen als reanimeren en blussen wegzakken als je ze
+      een jaar niet doet. De herhaling is korter dan de eerste keer.</p>
+    <p style="margin:0 0 4px;">Wil je weten wanneer de eerstvolgende herhaling is? Stuur ons een berichtje,
+      dan plannen we het samen in.</p>
+    ${knop("mailto:info@bhvroden.nl", "Plan mijn herhaling")}
+    <p style="margin:14px 0 0;font-size:13px;color:#6B6B66;">
+      Loopt de aanmelding via je werkgever, geef dit bericht dan even door aan je leidinggevende.</p>`;
+  return {
+    onderwerp: "Je BHV certificaat verloopt binnenkort",
+    html: omhulsel(site, "Je BHV certificaat verloopt binnenkort", binnen),
+  };
+}
+
 function bedrijfsmail(r: Record<string, unknown>, site: string, aantal: number) {
   const naam = r.voornaam ? `Hallo ${veilig(r.voornaam)},` : "Hallo,";
   const stuks = (r.stuks ?? []) as Record<string, unknown>[];
@@ -481,6 +507,8 @@ Deno.serve(async (req: Request) => {
         mail = certificaatmail(r, site);
       } else if (r.soort === "herinnering") {
         mail = herinneringsmail(r, site);
+      } else if (r.soort === "verloopt") {
+        mail = verloopmail(r, site);
       } else if (r.soort === "certificaten_bedrijf") {
         const stuks = (r.stuks ?? []) as Record<string, unknown>[];
         if (!stuks.length) throw new Error("geen geldige certificaten meer bij dit bedrijf");

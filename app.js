@@ -1544,7 +1544,7 @@
   function basisgegevens() {
     if (B.organisaties && B.cursussen) return Promise.resolve();
     return Promise.all([
-      sb.from("organisaties").select("id, naam, slug, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url, contactpersoon_naam, contactpersoon_email, actief, aangemaakt_op").order("naam"),
+      sb.from("organisaties").select("id, naam, slug, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url, contactpersoon_naam, contactpersoon_email, dpa_getekend_op, dpa_opmerking, actief, aangemaakt_op").order("naam"),
       sb.from("cursussen").select("id, titel, organisatie_id, actief").eq("actief", true).order("titel")
     ]).then(function (r) {
       r.forEach(function (x) { if (x.error) throw x.error; });
@@ -1886,11 +1886,19 @@
 
     uit += '<div class="paneel" style="margin-top:24px"><div class="paneel-kop"><h2>Bestaande bedrijven</h2></div>' +
       '<div class="tabel-scroll" style="border:0;box-shadow:none"><table><thead><tr>' +
-      "<th>Bedrijf</th><th>Webadres</th><th>Contactpersoon</th><th>Huisstijl</th><th>Certificaten</th></tr></thead><tbody>" +
+      "<th>Bedrijf</th><th>Contactpersoon</th><th>Verwerkers<br>overeenkomst</th><th>Huisstijl</th><th>Certificaten</th></tr></thead><tbody>" +
       B.organisaties.map(function (o) {
-        return "<tr><td class=\"nm\">" + esc(o.naam) + (o.is_eigenaar ? ' <span class="chip nieuw">eigen</span>' : "") + "</td>" +
-          '<td class="num" style="font-size:12px;color:var(--muted)">' + esc(o.slug) + ".bhvrodenelearning.nl</td>" +
-          "<td>" + esc(o.contactpersoon_naam || "") + (o.contactpersoon_email ? "<br><span style=\"font-size:12px;color:var(--muted)\">" + esc(o.contactpersoon_email) + "</span>" : "") + "</td>" +
+        return "<tr><td class=\"nm\">" + esc(o.naam) + (o.is_eigenaar ? ' <span class="chip nieuw">eigen</span>' : "") +
+          '<br><span style="font-weight:400;font-size:11.5px;color:var(--muted)">' + esc(o.slug) + ".bhvrodenelearning.nl</span></td>" +
+          "<td>" + (o.contactpersoon_naam || o.contactpersoon_email
+            ? esc(o.contactpersoon_naam || "") + (o.contactpersoon_email ? "<br><span style=\"font-size:12px;color:var(--muted)\">" + esc(o.contactpersoon_email) + "</span>" : "")
+            : '<span class="chip let">nog leeg</span>') + "</td>" +
+          "<td>" + (o.is_eigenaar ? '<span style="color:var(--muted);font-size:12px">niet nodig</span>'
+            : (o.dpa_getekend_op
+               ? '<span class="chip af">' + esc(datumNL(o.dpa_getekend_op)) + "</span>" +
+                 (o.dpa_opmerking ? '<div class="klein" style="color:var(--muted)">' + esc(o.dpa_opmerking) + "</div>" : "") +
+                 '<div><button type="button" class="tekstknop" data-dpa="' + esc(o.id) + '" style="font-size:12px">wijzigen</button></div>'
+               : '<button type="button" class="btn btn-g btn-sm" data-dpa="' + esc(o.id) + '">Vastleggen</button>')) + "</td>" +
           '<td><span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:' + esc(o.kleur_primair) + ';vertical-align:middle"></span>' +
           '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td>' +
           "<td>" + (o.contactpersoon_email
@@ -1908,6 +1916,9 @@
     $("#b-maak").addEventListener("click", maakBedrijf);
     $("#beheer-paneel").querySelectorAll("[data-cert-org]").forEach(function (b) {
       b.addEventListener("click", function () { stuurCertificaten(b); });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-dpa]").forEach(function (b) {
+      b.addEventListener("click", function () { tekenDpa(b.dataset.dpa); });
     });
     tekenVoorbeeld();
     return Promise.resolve();
@@ -2146,6 +2157,54 @@
     teken();
   }
 
+  /* De verwerkersovereenkomst per bedrijf. Wij bewaren namen,
+     geboortedata en uitslagen van medewerkers van een ander bedrijf.
+     Die afspraak hoort op papier te staan, en hier leg je vast dat dat
+     gebeurd is. */
+  function tekenDpa(orgId) {
+    var o = (B.organisaties || []).find(function (x) { return x.id === orgId; });
+    if (!o) return;
+    var datum = o.dpa_getekend_op ? String(o.dpa_getekend_op).slice(0, 10) : "";
+
+    $("#beheer-paneel").innerHTML =
+      '<button type="button" class="terug" id="dpa-terug">' + IC.terug + "Terug naar de bedrijven</button>" +
+      '<div class="kop"><h1>Verwerkers<em>overeenkomst</em></h1>' +
+      "<p>Voor " + esc(o.naam) + ". Leg hier vast wanneer de overeenkomst is getekend, zodat je het kunt " +
+      "terugvinden als iemand ernaar vraagt.</p></div>" +
+      '<div class="paneel"><div class="paneel-body">' +
+      '<div class="veld"><label for="dpa-datum">Getekend op</label>' +
+      '<input class="kies" id="dpa-datum" type="date" value="' + esc(datum) + '">' +
+      '<span class="hint">Laat leeg als er nog niets is getekend.</span></div>' +
+      '<div class="veld"><label for="dpa-op">Opmerking, voor jezelf</label>' +
+      '<input class="kies" id="dpa-op" type="text" placeholder="Getekend door de gemeentesecretaris" value="' +
+      esc(o.dpa_opmerking || "") + '"></div>' +
+      '<div class="btn-row"><button type="button" class="btn btn-a" id="dpa-op-knop">Opslaan</button>' +
+      '<span class="lead" id="dpa-stand"></span></div></div></div>' +
+      '<div class="let" style="margin-top:20px"><b>Waarom dit ertoe doet.</b> ' +
+      "Jij bewaart persoonsgegevens van medewerkers van dit bedrijf. Een gemeente of een grotere " +
+      "werkgever vraagt vrijwel altijd om zo'n overeenkomst voordat ze tekenen. Of jij juridisch " +
+      "verwerker bent of zelf verantwoordelijke is een vraag voor een jurist, maar het document " +
+      "wordt hoe dan ook gevraagd.</div>";
+
+    $("#dpa-terug").addEventListener("click", function () { naarBeheer("bedrijven"); });
+    $("#dpa-op-knop").addEventListener("click", function () {
+      var k = $("#dpa-op-knop");
+      k.disabled = true;
+      $("#dpa-stand").textContent = "Bezig";
+      sb.rpc("zet_dpa", {
+        p_org: orgId,
+        p_datum: $("#dpa-datum").value || null,
+        p_opmerking: $("#dpa-op").value.trim() || null
+      }).then(function (r) {
+        k.disabled = false;
+        if (r.error) { $("#dpa-stand").textContent = r.error.message; return; }
+        B.organisaties = null;
+        toast("Vastgelegd");
+        naarBeheer("bedrijven");
+      });
+    });
+  }
+
   function tekenCertificaten() {
     return sb.from("certificaten")
       .select("nummer, naam_op_certificaat, geboortedatum, cursus_titel, score, behaald_op, geldig_tot, organisatie_id, ingetrokken_op")
@@ -2376,9 +2435,103 @@
       '<div class="paneel-body" id="c-account"></div></div>' +
       '<div class="paneel"><div class="paneel-kop"><h2>Wat er in de database staat</h2>' +
       '<button type="button" class="btn btn-g btn-sm" id="c-opnieuw">Opnieuw controleren</button></div>' +
-      '<div class="paneel-body" id="c-inhoud"></div></div><div id="c-uitslag"></div>';
+      '<div class="paneel-body" id="c-inhoud"></div></div><div id="c-uitslag"></div>' +
+      '<div class="paneel" id="c-opruimen"><div class="paneel-kop"><h2>Bewaren en opruimen</h2></div>' +
+      '<div class="paneel-body" id="c-opruim-body">' +
+      '<div class="laden"><span class="tol"></span>Bezig met ophalen</div></div></div>';
     $("#c-opnieuw").addEventListener("click", controleer);
+    tekenOpruimen();
     return controleer();
+  }
+
+  /* ---------------------------------------------------------------------
+     Bewaartermijn en opruimen
+
+     Gegevens eindeloos bewaren mag niet en is ook niet nodig. Hier zie
+     je wat er over de termijn heen is en kun je het opruimen. Bewust
+     geen knop die het vanzelf doet: weggooien is onomkeerbaar en jij
+     wilt er eerst naar kijken.
+     --------------------------------------------------------------------- */
+  function tekenOpruimen() {
+    return sb.rpc("opruimlijst").then(function (r) {
+      var vak = $("#c-opruim-body");
+      if (!vak) return;
+      if (r.error) {
+        vak.innerHTML = '<div class="let"><b>Nog niet beschikbaar</b>Draai <b>13_avg.sql</b> in Supabase.</div>';
+        return;
+      }
+      var u = r.data || {};
+      var t = u.termijnen || {};
+
+      vak.innerHTML =
+        "<p>Hoe lang je gegevens bewaart. In maanden. Dit zijn geen wettelijke normen maar jouw keuze, " +
+        'en ze staan ook zo in je <a href="privacy.html" target="_blank" rel="noopener">privacyverklaring</a>.</p>' +
+        '<div class="veld-rij" style="margin:16px 0">' +
+        '<div class="veld"><label for="bw-cert">Na het verlopen van een certificaat</label>' +
+        '<input class="kies" id="bw-cert" type="number" min="0" max="240" value="' +
+        (t.na_verlopen_certificaat_maanden != null ? t.na_verlopen_certificaat_maanden : 24) + '"></div>' +
+        '<div class="veld"><label for="bw-nooit">Account dat nooit iets deed</label>' +
+        '<input class="kies" id="bw-nooit" type="number" min="0" max="240" value="' +
+        (t.nooit_begonnen_maanden != null ? t.nooit_begonnen_maanden : 12) + '"></div>' +
+        '<div class="veld"><label for="bw-uitn">Verlopen uitnodiging</label>' +
+        '<input class="kies" id="bw-uitn" type="number" min="0" max="240" value="' +
+        (t.verlopen_uitnodiging_maanden != null ? t.verlopen_uitnodiging_maanden : 6) + '"></div></div>' +
+        '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="bw-op">Termijnen opslaan</button>' +
+        '<span class="lead" id="bw-stand"></span></div>' +
+
+        '<div class="regel" style="margin-top:22px"><span class="vink ' + (u.verlopen_certificaten ? "bezig" : "ja") + '">' +
+        (u.verlopen_certificaten ? "" : IC.vink) + "</span>" +
+        '<span class="tekst"><b>Verlopen certificaten</b><span>Naam en geboortedatum gaan eruit, het nummer blijft</span></span>' +
+        '<span class="waarde">' + (u.verlopen_certificaten || 0) + "</span></div>" +
+        '<div class="regel"><span class="vink ' + (u.nooit_begonnen ? "bezig" : "ja") + '">' +
+        (u.nooit_begonnen ? "" : IC.vink) + "</span>" +
+        '<span class="tekst"><b>Accounts die nooit iets deden</b><span>De gegevens gaan eruit</span></span>' +
+        '<span class="waarde">' + (u.nooit_begonnen || 0) + "</span></div>" +
+        '<div class="regel"><span class="vink ' + (u.oude_uitnodigingen ? "bezig" : "ja") + '">' +
+        (u.oude_uitnodigingen ? "" : IC.vink) + "</span>" +
+        '<span class="tekst"><b>Oude uitnodigingen</b><span>Worden verwijderd</span></span>' +
+        '<span class="waarde">' + (u.oude_uitnodigingen || 0) + "</span></div>" +
+
+        '<div class="btn-row" style="margin-top:18px">' +
+        '<button type="button" class="btn ' + (u.totaal ? "btn-a" : "btn-g") + '" id="bw-ruim"' +
+        (u.totaal ? "" : " disabled") + ">" +
+        (u.totaal ? "Ruim deze " + u.totaal + " op" : "Er is niets op te ruimen") + "</button>" +
+        '<span class="lead" id="bw-ruim-stand"></span></div>' +
+        (u.totaal ? '<div class="let" style="margin-top:14px"><b>Dit kun je niet terugdraaien.</b> ' +
+          "De certificaatnummers blijven bestaan, maar de namen en geboortedata zijn daarna echt weg.</div>" : "");
+
+      $("#bw-op").addEventListener("click", function () {
+        $("#bw-stand").textContent = "Bezig";
+        sb.rpc("zet_bewaartermijn", { p_termijnen: {
+          na_verlopen_certificaat_maanden: Number($("#bw-cert").value) || 0,
+          nooit_begonnen_maanden: Number($("#bw-nooit").value) || 0,
+          verlopen_uitnodiging_maanden: Number($("#bw-uitn").value) || 0
+        }}).then(function (q) {
+          if (q.error) { $("#bw-stand").textContent = q.error.message; return; }
+          toast("Termijnen opgeslagen");
+          tekenOpruimen();
+        });
+      });
+
+      if ($("#bw-ruim")) {
+        $("#bw-ruim").addEventListener("click", function () {
+          if (!window.confirm(
+            "Je gaat nu " + u.totaal + " " + (u.totaal === 1 ? "regel" : "regels") + " opruimen.\n\n" +
+            "Namen en geboortedata worden verwijderd. Dit kun je niet terugdraaien.\n\nDoorgaan?")) return;
+          $("#bw-ruim").disabled = true;
+          $("#bw-ruim-stand").textContent = "Bezig";
+          sb.rpc("ruim_op").then(function (q) {
+            if (q.error) { $("#bw-ruim").disabled = false; $("#bw-ruim-stand").textContent = q.error.message; return; }
+            var d = q.data || {};
+            melding("Opgeruimd",
+              (d.certificaten_geanonimiseerd || 0) + " certificaten ontdaan van persoonsgegevens, " +
+              (d.accounts_geanonimiseerd || 0) + " accounts geanonimiseerd en " +
+              (d.uitnodigingen_verwijderd || 0) + " oude uitnodigingen verwijderd.", "goed");
+            tekenOpruimen();
+          });
+        });
+      }
+    }).catch(function () { /* het paneel toont dan de melding hierboven */ });
   }
 
   /* Schrijf alleen als het vak er nog is. Klikt iemand halverwege naar
