@@ -207,8 +207,7 @@
     $("#vb-lead").textContent =
       (d.bedrijf ? "Het eigen hoofdstuk voor " + d.bedrijf + ", " : "") +
       "onderdeel van " + (d.cursus || "de cursus") + ". " +
-      (aantal === 1 ? "Een les" : aantal + " lessen") +
-      ". Kijk het rustig na en laat weten wat er nog aangepast moet worden.";
+      (aantal === 1 ? "Een les" : aantal + " lessen") + ".";
 
     tekenLessen(d);
     $("#vb-laden").hidden = true;
