@@ -76,7 +76,12 @@
   /* Een melding die blijft staan tot je hem wegklikt. Een toast van
      bijna drie seconden is prima voor "gelukt", maar te vluchtig voor
      iets waar de gebruiker echt iets mee moet. */
-  function melding(titel, tekst, soort) {
+  /* tekst is gewone taal en wordt ontsmet. Wil je er de technische
+     reden onder hebben, geef die dan als vierde ding mee: de ruwe
+     fout. Die komt er alleen bij te staan als je beheerder bent, en
+     hij wordt hier netjes opgemaakt. Zelf HTML meegeven werkt niet,
+     dat komt als losse tekens op het scherm. */
+  function melding(titel, tekst, soort, fout) {
     var o = document.querySelector(".bericht");
     if (o) o.remove();
     var d = document.createElement("div");
@@ -84,6 +89,7 @@
     d.setAttribute("role", "alertdialog");
     d.setAttribute("aria-label", titel);
     d.innerHTML = '<div class="bericht-in"><b>' + esc(titel) + "</b><p>" + esc(tekst) + "</p>" +
+      (fout ? technisch(fout) : "") +
       '<div class="btn-row"><button type="button" class="btn btn-a">Ik begrijp het</button></div></div>';
     d.querySelector("button").addEventListener("click", function () { d.remove(); });
     document.body.appendChild(d);
@@ -2217,7 +2223,9 @@
         }).catch(function (e) {
           b.disabled = false;
           b.textContent = tekst;
-          melding("De link kon niet gemaakt worden", technisch(e), "mis");
+          melding("De link kon niet gemaakt worden",
+            "Er is niets veranderd. Probeer het zo nog een keer, of laat het weten als het blijft misgaan.",
+            "mis", e);
         });
       });
     });
@@ -2243,7 +2251,8 @@
         }).catch(function (e) {
           b.disabled = false;
           b.textContent = "Zet uit";
-          melding("De link kon niet worden uitgezet", technisch(e), "mis");
+          melding("De link kon niet worden uitgezet",
+            "De link werkt dus nog. Probeer het zo nog een keer.", "mis", e);
         });
       });
     });
