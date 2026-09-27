@@ -2085,8 +2085,12 @@
         if (!ls.length) return;
         var org = m.organisatie_id ? orgNaam(m.organisatie_id) : null;
         uit += '<div class="paneel"><div class="paneel-kop"><h2>' + esc(m.titel) + "</h2>" +
-          (org ? '<span class="chip nieuw">alleen ' + esc(org) + "</span>" : "") + "</div>" +
+          '<div class="btn-row">' +
+          (org ? '<span class="chip nieuw">alleen ' + esc(org) + "</span>" : "") +
+          '<button type="button" class="btn btn-g btn-sm" data-kijklink="' + esc(m.id) + '">Deel om mee te kijken</button>' +
+          "</div></div>" +
           '<div class="paneel-body">' +
+          '<div id="kl-' + esc(m.id) + '"></div>' +
           ls.map(function (l) {
             var n = Array.isArray(l.videos) ? l.videos.length : 0;
             return '<div class="regel"><span class="vink ' + (n ? "ja" : "bezig") + '">' + (n ? IC.vink : "") + "</span>" +
@@ -2100,6 +2104,147 @@
       $("#v-bib-op").addEventListener("click", bewaarBibliotheek);
       $("#beheer-paneel").querySelectorAll("[data-les-video]").forEach(function (b) {
         b.addEventListener("click", function () { tekenVideoLes(b.dataset.lesVideo); });
+      });
+      $("#beheer-paneel").querySelectorAll("[data-kijklink]").forEach(function (b) {
+        b.addEventListener("click", function () { kijklinkPaneel(b.dataset.kijklink, b); });
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+     Een link om mee te laten kijken
+
+     Een klant die zijn eigen hoofdstuk moet goedkeuren heeft geen
+     account, en hoeft dat ook niet te krijgen. Dus maken we een link
+     met een lange sleutel erin. Wie die link heeft mag kijken, en
+     verder niets: de database geeft alleen dit ene hoofdstuk terug,
+     geen deelnemers, geen voortgang, geen toetsvragen.
+
+     Je kunt een link altijd weer uitzetten. Hij blijft in de lijst
+     staan, zodat je kunt zien of er naar gekeken is.
+     --------------------------------------------------------------------- */
+  function kijklinkAdres(token) {
+    return location.origin + "/voorbeeld.html?k=" + token;
+  }
+
+  function kijklinkPaneel(moduleId, knop) {
+    var doel = $("#kl-" + moduleId);
+    if (!doel) return;
+
+    if (doel.dataset.open === "ja") {
+      doel.innerHTML = "";
+      doel.dataset.open = "";
+      knop.textContent = "Deel om mee te kijken";
+      return;
+    }
+    doel.dataset.open = "ja";
+    knop.textContent = "Verbergen";
+    doel.innerHTML = '<div class="laden"><span class="tol"></span>Bezig met ophalen</div>';
+
+    sb.rpc("voorbeeldlinks").then(function (r) {
+      if (r.error) throw r.error;
+      var mijn = (r.data || []).filter(function (x) { return x.module_id === moduleId; });
+      tekenKijklinks(moduleId, mijn);
+    }).catch(function (e) {
+      doel.innerHTML = '<div class="let mis"><b>De lijst kon niet worden opgehaald</b>' +
+        esc(e && e.message ? e.message : e) + "</div>";
+    });
+  }
+
+  function tekenKijklinks(moduleId, lijst) {
+    var doel = $("#kl-" + moduleId);
+    if (!doel) return;
+
+    var uit = '<div class="let"><b>Zo werkt een kijklink.</b> ' +
+      "Wie deze link heeft kan dit hoofdstuk bekijken, zonder account en zonder wachtwoord. " +
+      "Hij ziet alleen de lessen, de tekst en de video's. Geen deelnemers, geen voortgang, " +
+      "geen toetsvragen. Stuur hem dus alleen naar mensen die mogen meekijken, en zet hem uit " +
+      "zodra het hoofdstuk is goedgekeurd.</div>";
+
+    uit += '<div class="btn-row" style="margin-top:14px">' +
+      '<button type="button" class="btn btn-p btn-sm" data-kl-nieuw="' + esc(moduleId) + '" data-dagen="0">Maak een link</button>' +
+      '<button type="button" class="btn btn-g btn-sm" data-kl-nieuw="' + esc(moduleId) + '" data-dagen="30">Maak een link die na 30 dagen stopt</button>' +
+      "</div>";
+
+    var levend = lijst.filter(function (x) { return x.actief && !x.verlopen; });
+    var dood   = lijst.filter(function (x) { return !x.actief || x.verlopen; });
+
+    if (levend.length) {
+      uit += levend.map(function (x) {
+        return '<div class="paneel" style="margin-top:14px"><div class="paneel-body">' +
+          '<div class="vb-kopieer">' +
+            '<input type="text" readonly value="' + esc(kijklinkAdres(x.token)) + '" data-kl-veld="' + esc(x.token) + '">' +
+            '<button type="button" class="btn btn-g btn-sm" data-kl-kopieer="' + esc(x.token) + '">Kopieer</button>' +
+            '<button type="button" class="btn btn-g btn-sm" data-kl-uit="' + esc(x.token) + '">Zet uit</button>' +
+          "</div>" +
+          '<div class="klein">' +
+            (x.keer_bekeken
+              ? x.keer_bekeken + (x.keer_bekeken === 1 ? " keer bekeken" : " keer bekeken") +
+                (x.laatst_bekeken ? ", laatst op " + esc(datumNL(x.laatst_bekeken)) : "")
+              : "Nog niet bekeken") +
+            (x.verloopt_op ? ". Stopt op " + esc(datumNL(x.verloopt_op)) : ". Stopt niet vanzelf") +
+            (x.omschrijving ? ". " + esc(x.omschrijving) : "") +
+          "</div></div></div>";
+      }).join("");
+    } else {
+      uit += '<div class="klein" style="margin-top:12px">Er staat nog geen link open voor dit hoofdstuk.</div>';
+    }
+
+    if (dood.length) {
+      uit += '<div class="klein" style="margin-top:12px">' + dood.length +
+        (dood.length === 1 ? " oudere link staat uit" : " oudere links staan uit") +
+        " en werken niet meer.</div>";
+    }
+
+    doel.innerHTML = uit;
+
+    doel.querySelectorAll("[data-kl-nieuw]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var tekst = b.textContent;
+        b.disabled = true;
+        b.textContent = "Bezig";
+        sb.rpc("maak_voorbeeldlink", {
+          p_module: b.dataset.klNieuw,
+          p_dagen: Number(b.dataset.dagen) || null,
+          p_omschrijving: null
+        }).then(function (r) {
+          if (r.error) throw r.error;
+          toast("De link staat klaar");
+          return sb.rpc("voorbeeldlinks");
+        }).then(function (r) {
+          if (r.error) throw r.error;
+          tekenKijklinks(moduleId, (r.data || []).filter(function (x) { return x.module_id === moduleId; }));
+        }).catch(function (e) {
+          b.disabled = false;
+          b.textContent = tekst;
+          melding("De link kon niet gemaakt worden", technisch(e), "mis");
+        });
+      });
+    });
+
+    doel.querySelectorAll("[data-kl-kopieer]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var veld = doel.querySelector('[data-kl-veld="' + b.dataset.klKopieer + '"]');
+        if (veld) kopieer(veld.value, b);
+      });
+    });
+
+    doel.querySelectorAll("[data-kl-uit]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        b.disabled = true;
+        b.textContent = "Bezig";
+        sb.rpc("zet_voorbeeldlink", { p_token: b.dataset.klUit, p_actief: false }).then(function (r) {
+          if (r.error) throw r.error;
+          toast("De link is uitgezet");
+          return sb.rpc("voorbeeldlinks");
+        }).then(function (r) {
+          if (r.error) throw r.error;
+          tekenKijklinks(moduleId, (r.data || []).filter(function (x) { return x.module_id === moduleId; }));
+        }).catch(function (e) {
+          b.disabled = false;
+          b.textContent = "Zet uit";
+          melding("De link kon niet worden uitgezet", technisch(e), "mis");
+        });
       });
     });
   }

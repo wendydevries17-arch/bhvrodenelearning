@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Meekijken, BHV Roden leeromgeving</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="balk">
+  <img src="img/logo-bhvroden.jpg" alt="BHV Roden">
+  <span class="naam" id="vb-naam">BHV Roden<span>Leeromgeving</span></span>
+  <span class="rechts"><span class="wie" id="vb-wie"></span></span>
+</header>
+
+<div class="wrap" id="vb-laden">
+  <div class="laden"><span class="tol"></span>Bezig met ophalen</div>
+</div>
+
+<div class="wrap wrap-smal" id="vb-fout" hidden>
+  <div class="kop">
+    <h1 id="vb-fout-titel">Deze link werkt <em>niet meer</em></h1>
+    <p id="vb-fout-tekst"></p>
+  </div>
+  <div class="let">
+    <b>Wat nu.</b> Vraag om een nieuwe link via
+    <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>. Hij is zo gemaakt.
+  </div>
+</div>
+
+<div id="vb-goed" hidden>
+  <div class="melding-balk">
+    <b>Meekijken.</b> Dit is een voorbeeld om na te kijken. Je hoeft niets in te vullen en er wordt niets bewaard.
+  </div>
+
+  <div class="wrap vb-kolom">
+    <div class="kop">
+      <h1 id="vb-titel"></h1>
+      <p id="vb-lead"></p>
+    </div>
+    <nav class="vb-wegwijzer" id="vb-wegwijzer" hidden></nav>
+    <div id="vb-lessen"></div>
+
+    <div class="voet">
+      <p><strong>Zo ziet de cursist het.</strong> In de echte cursus staat dit hoofdstuk tussen de andere
+        onderdelen, met een voortgangsbalk erbij en een knop om een les af te ronden. Die hebben we hier
+        weggelaten, zodat je alleen naar de inhoud hoeft te kijken.</p>
+      <p><strong>Verzorgd door BHV Roden.</strong> Klopt er iets niet, of mis je een locatie?
+        Mail even naar <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>.</p>
+      <p><a href="privacy.html">Wat we met gegevens doen</a></p>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="voorbeeld.js"></script>
+</body>
+</html>
