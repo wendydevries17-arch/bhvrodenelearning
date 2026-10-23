@@ -561,3 +561,72 @@ td .bar{width:92px}
 .stan-rij select{font:inherit;font-size:13.5px;padding:8px;border:1px solid var(--line-2);border-radius:4px;background:var(--surface)}
 .stan-rij.uitgezet{opacity:.5}
 @media (max-width:700px){.stan-rij{grid-template-columns:48px minmax(0,1fr)}.stan-rij>:nth-child(n+3){grid-column:2}}
+
+/* ================= LESBLOKKEN (blokken.js) ================= */
+.proza{max-width:72ch}
+.lb-titel{font-family:var(--fh);font-weight:700;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--a);margin-bottom:10px}
+.lb-stappen ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:none}
+.lb-stappen li{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);padding:13px 15px}
+.lb-nr{flex:none;width:32px;height:32px;border-radius:50%;background:var(--p);color:var(--p-ink);display:grid;place-items:center;font-family:var(--fh);font-weight:700;font-size:15px}
+.lb-stappen li b{display:block;font-family:var(--fh);color:var(--ink);font-size:15.5px;margin-bottom:2px}
+.lb-stappen li div span{display:block;color:var(--ink-2);font-size:14.5px;line-height:1.5}
+.lb-kaarten{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.lb-kaart{background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);padding:15px;display:flex;flex-direction:column;gap:5px}
+.lb-kaart b{font-family:var(--fh);color:var(--ink);font-size:15px}
+.lb-kaart span{font-size:14px;color:var(--ink-2);line-height:1.5}
+.lb-ic{width:38px;height:38px;border-radius:9px;background:var(--a-soft);color:var(--a);display:grid;place-items:center;margin-bottom:4px}
+.lb-ic svg{width:21px;height:21px}
+.lb-cijfers{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.lb-cijfer{background:var(--p);color:var(--p-ink);border-radius:var(--radc);padding:16px 16px 14px;display:flex;flex-direction:column;gap:4px}
+.lb-cijfer b{font-family:var(--fh);font-size:30px;line-height:1.05;letter-spacing:-.01em}
+.lb-cijfer span{font-size:13.5px;opacity:.85;line-height:1.4}
+.lb-goedfout{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:620px){.lb-goedfout{grid-template-columns:1fr}}
+.lb-goed,.lb-fout{border-radius:var(--radc);padding:14px 16px;border:1px solid}
+.lb-goed{background:var(--ok-soft);border-color:#B9DCC4}
+.lb-fout{background:var(--err-soft);border-color:#EBC3BE}
+.lb-gf-kop{display:flex;gap:8px;align-items:center;font-family:var(--fh);font-weight:700;font-size:14.5px;margin-bottom:8px}
+.lb-goed .lb-gf-kop{color:var(--ok)}.lb-fout .lb-gf-kop{color:var(--err)}
+.lb-gf-kop svg{width:18px;height:18px}
+.lb-goedfout ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:14.5px;color:var(--ink)}
+.lb-stan{display:flex;gap:14px;align-items:flex-end;background:var(--tint);border-radius:var(--radc);padding:12px 16px 0 10px;overflow:hidden}
+.lb-stan img{width:76px;height:auto;flex:none;display:block}
+.lb-stan div{padding-bottom:14px}
+.lb-stan-naam{display:block;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--a);margin-bottom:3px}
+.lb-stan p{margin:0;font-family:var(--fh);font-weight:700;color:var(--p);font-size:15.5px;line-height:1.35}
+
+/* ================= BEHEER: CURSUSINHOUD (inhoud.js) ================= */
+.ih-balk{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ih-titelrij{display:flex;align-items:center;gap:10px;flex:1;min-width:240px}
+.ih-nr{flex:none;width:28px;height:28px;border-radius:50%;background:var(--p);color:var(--p-ink);display:grid;place-items:center;font-family:var(--fh);font-weight:700;font-size:13px}
+.ih-titel{flex:1;min-width:0;font-family:var(--fh);font-weight:700;font-size:15.5px;border:1px solid transparent;border-radius:4px;padding:7px 9px;background:transparent;color:var(--ink)}
+.ih-titel:hover{border-color:var(--line)}
+.ih-titel:focus{border-color:var(--a);outline:none;background:var(--surface)}
+.ih-les{align-items:center}
+.ih-les .btn-row{flex-wrap:nowrap}
+@media (max-width:700px){.ih-les{flex-wrap:wrap}.ih-les .btn-row{flex-wrap:wrap}}
+.ih-werk{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:1080px){.ih-werk{grid-template-columns:1fr}}
+.ih-rechts{position:sticky;top:130px;max-height:calc(100vh - 150px);overflow:auto;background:var(--ground);border:1px dashed var(--line-2);border-radius:var(--radc);padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+@media (max-width:1080px){.ih-rechts{position:static;max-height:none}}
+.ih-voorbeeld-kop{font-family:var(--fh);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.ih-blokken{padding:12px 18px;display:flex;flex-direction:column;gap:12px}
+.ih-blok,.ih-vraag{border:1px solid var(--line);border-radius:var(--radc);padding:12px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.ih-vraag.uitgezet{opacity:.55}
+.ih-blok-kop{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.ih-blok-kop b{font-family:var(--fh);font-size:13px;letter-spacing:.04em;color:var(--ink-2)}
+.ih-blok-body{display:flex;flex-direction:column;gap:8px}
+.ih-blokken input:not([type]),.ih-blokken input[type=number],.ih-blokken textarea,.ih-blokken select,.ih-erbij select{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-2);border-radius:4px;background:var(--surface);color:var(--ink);width:100%;box-sizing:border-box}
+.ih-blokken textarea{resize:vertical;line-height:1.45}
+.ih-blokken select{width:auto}
+.ih-rij{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1.6fr) auto;gap:8px;align-items:start}
+.ih-rij .lb-nr{width:28px;height:28px;font-size:13px;margin-top:4px}
+@media (max-width:640px){.ih-rij{grid-template-columns:auto minmax(0,1fr) auto}.ih-rij textarea{grid-column:1/-1}}
+.ih-twee{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:640px){.ih-twee{grid-template-columns:1fr}}
+.ih-hint{font-size:12px;color:var(--muted)}
+.ih-opties{display:flex;flex-direction:column;gap:6px}
+.ih-optie{display:flex;gap:8px;align-items:center}
+.ih-optie input[type=radio]{width:18px;height:18px;accent-color:var(--ok);flex:none}
+.ih-erbij{padding-top:4px}
+.ih-opslaan{position:sticky;bottom:0;background:var(--ground);padding:12px 0;display:flex;gap:12px;align-items:center;border-top:1px solid var(--line);z-index:5}

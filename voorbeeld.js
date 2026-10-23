@@ -78,6 +78,7 @@
   /* ---------- de inhoud ---------- */
   function prozaHtml(blokken) {
     if (!Array.isArray(blokken)) return "";
+    if (window.BHVBlokken) return window.BHVBlokken.html(blokken);
     return blokken.map(function (b) {
       if (b.t === "h") return "<h3>" + b.v + "</h3>";
       if (b.t === "ul") return "<ul>" + (b.v || []).map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>";

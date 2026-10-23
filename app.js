@@ -1137,6 +1137,7 @@
 
   function prozaHtml(blokken) {
     if (!Array.isArray(blokken)) return "";
+    if (window.BHVBlokken) return window.BHVBlokken.html(blokken);
     return blokken.map(function (b) {
       if (b.t === "h") return "<h3>" + b.v + "</h3>";
       if (b.t === "ul") return "<ul>" + (b.v || []).map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>";
@@ -1626,7 +1627,7 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
@@ -1651,6 +1652,9 @@
       if (tab === "videos")            return tekenVideos();
       if (tab === "presentatie")       return tekenPresentatie();
       if (tab === "stan")              return tekenStan();
+      if (tab === "inhoud")            return window.BHVInhoud
+        ? window.BHVInhoud.beheer($("#beheer-paneel"), { sb: sb, toast: toast, melding: melding, IC: IC, herlaadCursus: function () { S.herladen = true; } })
+        : null;
       if (tab === "controle")          return tekenControle();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
