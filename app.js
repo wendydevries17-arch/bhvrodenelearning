@@ -60,7 +60,7 @@
   }
   function duur(sec) {
     if (!sec) return "";
-    var m = Math.round(sec / 60);
+    var m = Math.max(1, Math.round(sec / 60));
     return m + " min";
   }
   function toast(t) {
@@ -643,7 +643,7 @@
         if (r.error) throw r.error;
         S.inschrijving = r.data;
         return Promise.all([
-          sb.from("modules").select("id, titel, volgorde, organisatie_id").eq("cursus_id", S.cursus.id).order("volgorde"),
+          sb.from("modules").select("id, titel, volgorde, organisatie_id, status").eq("cursus_id", S.cursus.id).neq("status", "archief").order("volgorde"),
           sb.from("vragen").select("id, les_id, module_id, soort, volgorde, vraag, opties").eq("cursus_id", S.cursus.id).in("soort", ["evaluatie", "toets"]).order("volgorde"),
           sb.from("voortgang").select("les_id, antwoorden, afgerond_op").eq("inschrijving_id", S.inschrijving),
           sb.from("pogingen").select("id, soort, module_id, score, geslaagd, ingeleverd_op").eq("inschrijving_id", S.inschrijving).order("gestart_op"),
@@ -687,7 +687,7 @@
 
         var ids = S.alleModules.map(function (m) { return m.id; });
         return sb.from("lessen")
-          .select("id, module_id, titel, volgorde, duur_seconden, tekst, markeringen, foto_url, videos")
+          .select("id, module_id, titel, volgorde, duur_seconden, tekst, markeringen, foto_url, videos, dias")
           .in("module_id", ids).order("volgorde");
       })
       .then(function (r) {
@@ -697,6 +697,12 @@
         tekenToc();
         // Stond er nog een toets open, dan pakken we die meteen weer op.
         if (!hervatToets()) naarDashboard();
+        // Stan. Wie nog nergens aan begonnen is, krijgt zijn introductie.
+        if (window.BHVStan) {
+          window.BHVStan.laad(sb).then(function () {
+            if (!toetsLoopt() && telAf() === 0) window.BHVStan.zeg("start", { altijd: true });
+          });
+        }
       })
       .catch(function (e) {
         if (e && e.message === "geen-cursus") {
@@ -807,6 +813,14 @@
     return S.kijkAls ? S.kijkAls.id : (S.profiel && S.profiel.organisatie_id);
   }
   function bijMijnBedrijf(m) {
+    var status = m.status || "live";
+    if (status === "archief") return false;
+    // Bekijkt een beheerder het concept, dan zie je wat cursisten na
+    // het publiceren zien: het concept plus de klanthoofdstukken.
+    if (S.toonConcept) {
+      if (status === "concept") return true;
+      if (!m.organisatie_id) return false;
+    } else if (status !== "live") return false;
     return !m.organisatie_id || m.organisatie_id === kijkOrgId();
   }
   function bouwModules() {
@@ -822,7 +836,8 @@
   function tekenKijkbalk() {
     var balk = $("#kijk-balk");
     if (!balk) return;
-    if (!S.profiel || S.profiel.rol !== "beheerder" || !S.bedrijven || S.bedrijven.length < 2) {
+    var heeftConcept = (S.alleModules || []).some(function (m) { return m.status === "concept"; });
+    if (!S.profiel || S.profiel.rol !== "beheerder" || ((!S.bedrijven || S.bedrijven.length < 2) && !heeftConcept)) {
       balk.hidden = true;
       return;
     }
@@ -836,6 +851,8 @@
           esc(o.naam) + (o.is_eigenaar ? " (jouw eigen omgeving)" : "") + "</option>";
       }).join("") + "</select>" +
       (S.kijkAls ? '<button type="button" class="btn btn-g btn-sm" id="kijk-terug">Terug naar mijn eigen omgeving</button>' : "") +
+      (heeftConcept ? '<label class="kijk-concept"><input type="checkbox" id="kijk-concept"' + (S.toonConcept ? " checked" : "") +
+        "> Bekijk het concept van de nieuwe presentatie</label>" : "") +
       "</span>";
 
     $("#kijk-kies").addEventListener("change", function () {
@@ -843,6 +860,13 @@
     });
     if ($("#kijk-terug")) {
       $("#kijk-terug").addEventListener("click", function () { kijkAlsBedrijf(null); });
+    }
+    if ($("#kijk-concept")) {
+      $("#kijk-concept").addEventListener("change", function () {
+        S.toonConcept = $("#kijk-concept").checked;
+        bouwModules();
+        naarDashboard();
+      });
     }
   }
 
@@ -868,6 +892,14 @@
   }
 
   function naarDashboard() {
+    // Na publiceren in het beheer halen we de cursus opnieuw op.
+    if (S.herladen) {
+      S.herladen = false;
+      toon("view-laden");
+      laadCursus().catch(function (e) { storing("Er ging iets mis", esc(e && e.message ? e.message : e)); });
+      return;
+    }
+    if (S.diaSpeler) { S.diaSpeler.stop(); S.diaSpeler = null; }
     toon("view-dashboard");
     $("#nav-overzicht").hidden = false;
     tekenKijkbalk();
@@ -969,6 +1001,24 @@
     toon("view-les");
     tekenToc();
     tekenLes();
+    stanBijLes(id);
+  }
+
+  /* Stan bij het openen van een les: aan het begin van een module, en
+     bij reanimatie, dat zijn eigen toon heeft. Een les die al af is
+     laat hij met rust. */
+  function stanBijLes(id) {
+    if (!window.BHVStan || lesAf(id)) return;
+    var l = S.lessen.find(function (x) { return x.id === id; });
+    var m = l && S.modules.find(function (x) { return x.id === l.module_id; });
+    if (!l || !m) return;
+    var eerste = m.lessen[0] && m.lessen[0].id === id;
+    var reanimatie = window.BHVStan.onderwerp(l.titel) === "reanimatie";
+    if (!eerste && !reanimatie) return;
+    var ond = window.BHVStan.onderwerp(l.titel) || window.BHVStan.onderwerp(m.titel);
+    setTimeout(function () {
+      if (S.huidig === id) window.BHVStan.zeg("start_module", { onderwerp: ond, altijd: true, naAfloop: true });
+    }, 700);
   }
 
   function tekenToc() {
@@ -1022,8 +1072,16 @@
 
     var films = videosHtml(l);
     var heeftTekst = Array.isArray(l.tekst) && l.tekst.length > 0;
+    var heeftDias = Array.isArray(l.dias) && l.dias.length > 0 && !!window.BHVDias;
+    if (S.diaSpeler) { S.diaSpeler.stop(); S.diaSpeler = null; }
 
-    if (films) {
+    if (heeftDias) {
+      /* Een les uit de PowerPoint: dia's met de presentator erin. */
+      uit += '<div id="dia-plek"></div>' +
+        '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
+        "<h2>" + esc(l.titel) + "</h2></div>";
+      if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+    } else if (films) {
       /* Een les met eigen video's. Kop eerst, dan de films. */
       uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
@@ -1061,6 +1119,17 @@
     }
 
     $("#les-paneel").innerHTML = uit;
+    S.diasKlaar = S.diasKlaar || {};
+    if (heeftDias) {
+      if (lesAf(l.id)) S.diasKlaar[l.id] = true;
+      S.diaSpeler = window.BHVDias.speler($("#dia-plek"), l, {
+        lesAlAf: lesAf(l.id),
+        onVoortgang: function (alles) {
+          if (alles) { S.diasKlaar[l.id] = true; werkKlaarknopBij(l, vragen); }
+        }
+      });
+      if (S.diaSpeler.alleGezien()) S.diasKlaar[l.id] = true;
+    }
     if (vragen.length) tekenEvaluatie(l, vragen);
     $("#les-klaar").addEventListener("click", function () { rondLesAf(l, vragen); });
     werkKlaarknopBij(l, vragen);
@@ -1129,6 +1198,7 @@
       };
       schilderVraag($("#ev-vragen").querySelector('[data-v="' + vraagId + '"]'), S.antwoorden[l.id][vraagId]);
       werkKlaarknopBij(l, vragen);
+      if (window.BHVStan) window.BHVStan.zeg(r.data.juist ? "goed" : "fout", { altijd: true, min: 9000 });
       bewaarAntwoorden(l).catch(function () { /* komt bij het afronden opnieuw langs */ });
     });
   }
@@ -1154,7 +1224,13 @@
     if (stand) stand.textContent = gedaan + " van " + vragen.length + " beantwoord";
     var knop = $("#les-klaar");
     if (!knop) return;
-    knop.disabled = gedaan < vragen.length;
+    // Een les met dia's rond je pas af als je alle dia's hebt gezien.
+    var diasOk = !(Array.isArray(l.dias) && l.dias.length) || !window.BHVDias || (S.diasKlaar && S.diasKlaar[l.id]);
+    knop.disabled = gedaan < vragen.length || !diasOk;
+    var hint = $("#dia-hint");
+    if (!diasOk && !hint) {
+      knop.insertAdjacentHTML("afterend", '<span class="lead" id="dia-hint">Bekijk eerst alle dia\'s</span>');
+    } else if (diasOk && hint) hint.remove();
     knop.textContent = lesAf(l.id) ? "Volgende les" : "Les afronden";
   }
 
@@ -1190,6 +1266,9 @@
       var volgende = rij[i + 1];
       var m = S.modules.find(function (x) { return x.id === l.module_id; });
       toast("Les afgerond");
+      if (window.BHVStan && m && moduleLessenAf(m) && !(volgende && volgende.module_id === l.module_id)) {
+        setTimeout(function () { window.BHVStan.zeg("afronden", { altijd: true }); }, 600);
+      }
 
       if (volgende && volgende.module_id === l.module_id) {
         naarLes(volgende.id);
@@ -1297,6 +1376,7 @@
       };
       bewaarToets();
       tekenToets();
+      if (window.BHVStan) window.BHVStan.zeg("quiz", { altijd: true });
     });
   }
 
@@ -1365,6 +1445,7 @@
         score: u.score, geslaagd: u.geslaagd, ingeleverd_op: new Date().toISOString()
       });
       tekenUitslag(u);
+      if (window.BHVStan) window.BHVStan.zeg(u.geslaagd ? "geslaagd" : "gezakt", { altijd: true });
       if (u.certificaat) stuurWachtrijStil();
     });
   }
@@ -1545,11 +1626,12 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
     B.tab = tab;
+    if (window.BHVStan) window.BHVStan.verberg();
     toon("view-beheer");
     $("#nav-overzicht").hidden = S.profiel.rol === "contactpersoon";
     $("#beheer-tabs").querySelectorAll("button").forEach(function (b) {
@@ -1567,6 +1649,8 @@
       if (tab === "certificaten")      return tekenCertificaten();
       if (tab === "mail")              return tekenMail();
       if (tab === "videos")            return tekenVideos();
+      if (tab === "presentatie")       return tekenPresentatie();
+      if (tab === "stan")              return tekenStan();
       if (tab === "controle")          return tekenControle();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
@@ -2045,6 +2129,143 @@
   }
 
 
+  /* ---------- Stan ----------
+     De uitspraken van BHV-Stan. Elke wijziging wordt meteen bewaard,
+     en de leeromgeving kiest er bij elk moment willekeurig een uit die
+     de cursist nog niet zag.
+     ------------------------------------------------------------------ */
+  var STAN_MOMENTEN = [
+    ["start", "De eerste keer in de e-learning"],
+    ["start_module", "Begin van een hoofdstuk"],
+    ["quiz", "Bij het starten van een toets"],
+    ["goed", "Na een goed antwoord"],
+    ["fout", "Na een fout antwoord"],
+    ["afronden", "Hoofdstuk afgerond"],
+    ["geslaagd", "Toets of examen gehaald"],
+    ["gezakt", "Toets of examen net niet gehaald"]
+  ];
+  var STAN_ONDERWERPEN = [["", "Altijd"], ["ehbo", "EHBO"], ["reanimatie", "Reanimatie"], ["brand", "Brand"], ["ontruiming", "Ontruiming"]];
+  var STAN_POSES = [["standaard", "Staat erbij"], ["zwaait", "Zwaait"], ["tip", "Geeft een tip"], ["duim", "Duim omhoog"]];
+
+  function tekenStan() {
+    return sb.from("stan_uitspraken").select("id, moment, onderwerp, tekst, pose, actief").order("aangemaakt_op").then(function (r) {
+      if (r.error) throw r.error;
+      var lijst = r.data || [];
+      var opties = function (rij, waarde) {
+        return rij.map(function (o) {
+          return '<option value="' + o[0] + '"' + ((waarde || "") === o[0] ? " selected" : "") + ">" + esc(o[1]) + "</option>";
+        }).join("");
+      };
+      var uit = '<div class="kop"><h1>BHV-<em>Stan</em></h1>' +
+        "<p>De rechterhand van Dirk Jan. Hier staan zijn uitspraken per moment. Pas een tekst aan en klik ernaast, " +
+        "dan is hij bewaard. Stan kiest steeds een andere en herhaalt zich pas als alles een keer geweest is. " +
+        "Tijdens een video van Dirk Jan en op dia's die je als serieus markeert zwijgt hij.</p>" +
+        '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="stan-proef">Laat Stan iets zeggen</button></div></div>';
+      STAN_MOMENTEN.forEach(function (mo) {
+        var rijen = lijst.filter(function (u) { return u.moment === mo[0]; });
+        uit += '<div class="paneel"><div class="paneel-kop"><h2>' + esc(mo[1]) + "</h2>" +
+          '<button type="button" class="btn btn-g btn-sm" data-stan-erbij="' + mo[0] + '">Uitspraak erbij</button></div>' +
+          '<div class="paneel-body">' +
+          (rijen.length ? rijen.map(function (u) {
+            return '<div class="stan-rij' + (u.actief ? "" : " uitgezet") + '" data-id="' + esc(u.id) + '">' +
+              '<img src="' + window.BHVStan.beeld(u.pose) + '" alt="">' +
+              '<textarea aria-label="Tekst van Stan" data-veld="tekst" maxlength="160">' + esc(u.tekst) + "</textarea>" +
+              '<div style="display:flex;flex-direction:column;gap:6px">' +
+                '<select aria-label="Houding" data-veld="pose">' + opties(STAN_POSES, u.pose) + "</select>" +
+                (mo[0] === "start_module" ? '<select aria-label="Onderwerp" data-veld="onderwerp">' + opties(STAN_ONDERWERPEN, u.onderwerp) + "</select>" : "") +
+              "</div>" +
+              '<div class="btn-row">' +
+                '<button type="button" class="btn btn-g btn-sm" data-stan-aan>' + (u.actief ? "Uitzetten" : "Aanzetten") + "</button>" +
+                '<button type="button" class="btn btn-g btn-sm" data-stan-weg>Weg</button>' +
+              "</div></div>";
+          }).join("") : '<div class="regel"><span class="tekst"><span>Nog geen uitspraken. Dan zwijgt Stan op dit moment.</span></span></div>') +
+          "</div></div>";
+      });
+      $("#beheer-paneel").innerHTML = uit;
+
+      var p = $("#beheer-paneel");
+      function bewaar(id, veld, waarde) {
+        var upd = {}; upd[veld] = waarde;
+        return sb.from("stan_uitspraken").update(upd).eq("id", id).then(function (q) {
+          if (q.error) throw q.error;
+          toast("Bewaard");
+          if (window.BHVStan) window.BHVStan.herlaad();
+        }).catch(function (e) { melding("Bewaren lukte niet", "Probeer het zo nog een keer.", "mis", e); });
+      }
+      p.querySelectorAll(".stan-rij").forEach(function (rij) {
+        var id = rij.dataset.id;
+        rij.querySelectorAll("[data-veld]").forEach(function (v) {
+          v.addEventListener("change", function () {
+            var w = v.value.trim();
+            if (v.dataset.veld === "tekst" && !w) { toast("Een lege tekst bewaren we niet"); return; }
+            if (v.dataset.veld === "onderwerp") w = w || null;
+            if (v.dataset.veld === "pose") rij.querySelector("img").src = window.BHVStan.beeld(w);
+            bewaar(id, v.dataset.veld, w);
+          });
+        });
+        rij.querySelector("[data-stan-aan]").addEventListener("click", function () {
+          var aan = rij.classList.contains("uitgezet");
+          bewaar(id, "actief", aan).then(function () { tekenStan(); });
+        });
+        rij.querySelector("[data-stan-weg]").addEventListener("click", function () {
+          if (!window.confirm("Deze uitspraak weghalen?")) return;
+          sb.from("stan_uitspraken").delete().eq("id", id).then(function (q) {
+            if (q.error) throw q.error;
+            toast("Weggehaald");
+            if (window.BHVStan) window.BHVStan.herlaad();
+            tekenStan();
+          }).catch(function (e) { melding("Weghalen lukte niet", "Probeer het zo nog een keer.", "mis", e); });
+        });
+      });
+      p.querySelectorAll("[data-stan-erbij]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          sb.from("stan_uitspraken").insert({ moment: b.dataset.stanErbij, tekst: "Nieuwe uitspraak van Stan", pose: "standaard" }).then(function (q) {
+            if (q.error) throw q.error;
+            tekenStan().then(function () {
+              var t = p.querySelectorAll('.stan-rij textarea');
+              var laatste = Array.prototype.filter.call(t, function (x) { return x.value === "Nieuwe uitspraak van Stan"; }).pop();
+              if (laatste) { laatste.focus(); laatste.select(); }
+            });
+          }).catch(function (e) { melding("Toevoegen lukte niet", "Probeer het zo nog een keer.", "mis", e); });
+        });
+      });
+      $("#stan-proef").addEventListener("click", function () {
+        if (!window.BHVStan) return;
+        window.BHVStan.zetUit(false);
+        window.BHVStan.herlaad().then(function () {
+          var mo = STAN_MOMENTEN[Math.floor(Math.random() * STAN_MOMENTEN.length)][0];
+          if (!window.BHVStan.zeg(mo, { altijd: true })) window.BHVStan.zeg("goed", { altijd: true });
+        });
+      });
+    }).catch(function (e) {
+      $("#beheer-paneel").innerHTML = '<div class="let mis"><b>Stan kon niet worden opgehaald</b>' +
+        esc(e && e.message ? e.message : e) + "</div>";
+    });
+  }
+
+  /* ---------- presentatie ----------
+     De PowerPoint-import en de greenscreen-video's per dia. Het werk
+     zelf staat in dias.js.
+     ------------------------------------------------------------------ */
+  function tekenPresentatie() {
+    if (!window.BHVDias) {
+      $("#beheer-paneel").innerHTML = '<div class="let mis"><b>Een onderdeel ontbreekt</b>dias.js is niet geladen. Ververs de pagina.</div>';
+      return;
+    }
+    return window.BHVDias.beheer($("#beheer-paneel"), {
+      sb: sb, toast: toast, melding: melding, IC: IC,
+      herlaadCursus: function () { S.herladen = true; },
+      bekijkConcept: function () {
+        S.toonConcept = true;
+        S.kijkAls = null;
+        if (S.herladen || !S.alleModules) { S.herladen = true; naarDashboard(); return; }
+        // Het concept kan net zijn ingelezen, dus eerst vers ophalen.
+        S.herladen = true;
+        naarDashboard();
+      }
+    });
+  }
+
   /* ---------- video's ----------
      Hier koppel je de nummers van Bunny Stream aan de lessen. De
      bestanden zelf staan bij Bunny, wij bewaren alleen het nummer.
@@ -2054,8 +2275,8 @@
   function tekenVideos() {
     return Promise.all([
       sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle(),
-      sb.from("modules").select("id, titel, volgorde, cursus_id, organisatie_id").order("volgorde"),
-      sb.from("lessen").select("id, module_id, titel, volgorde, videos").order("volgorde")
+      sb.from("modules").select("id, titel, volgorde, cursus_id, organisatie_id, status").neq("status", "archief").order("volgorde"),
+      sb.from("lessen").select("id, module_id, titel, volgorde, videos, dias").order("volgorde")
     ]).then(function (r) {
       r.forEach(function (x) { if (x.error) throw x.error; });
 
@@ -2063,7 +2284,8 @@
       if (typeof w === "string") { try { w = JSON.parse(w); } catch (e) { w = null; } }
       V.dienst = w || { soort: "bunny", bibliotheek: "", domein: "iframe.mediadelivery.net" };
       V.modules = r[1].data || [];
-      V.lessen = r[2].data || [];
+      // Lessen uit de PowerPoint krijgen hun video's op het tabblad Presentatie.
+      V.lessen = (r[2].data || []).filter(function (l) { return !(Array.isArray(l.dias) && l.dias.length); });
 
       var uit = '<div class="kop"><h1>De <em>video\'s</em></h1>' +
         "<p>De bestanden staan bij Bunny Stream. Hier koppel je per les welke video's erbij horen. " +

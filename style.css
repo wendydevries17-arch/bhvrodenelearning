@@ -443,3 +443,121 @@ td .bar{width:92px}
 @media (max-width:640px){.vb-les .videos{grid-template-columns:1fr;gap:18px}.vb-les .paneel-body{padding:15px}}
 .vb-kopieer{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
 .vb-kopieer input{flex:1;min-width:220px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+
+/* ================= DIA'S MET PRESENTATOR (dias.js) ================= */
+.dia-speler{background:#0A1220;border-radius:var(--radc);overflow:hidden;box-shadow:var(--sh-2)}
+.dia-toneel{position:relative;aspect-ratio:16/9;overflow:hidden;background:#fff;outline:none}
+.dia-toneel:focus-visible{outline:3px solid var(--a);outline-offset:-3px}
+.dia-toneel .dia-beeld{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.dia-toneel .dia-key{position:absolute;bottom:0;height:auto;aspect-ratio:16/9;pointer-events:none;visibility:hidden}
+.pr-voorbeeld .dia-toneel .dia-key{pointer-events:auto;cursor:crosshair}
+.dia-toneel .dia-video{position:absolute;width:2px;height:2px;opacity:0;pointer-events:none;left:0;top:0}
+.dia-toneel .dia-video.zonder-key{width:auto;height:100%;opacity:1;left:auto;right:0;top:0}
+.dia-toneel:fullscreen{aspect-ratio:auto;width:100vw;height:100vh;background:#000}
+.dia-toneel:-webkit-full-screen{width:100vw;height:100vh;background:#000}
+.dia-start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(10,18,32,.38);border:0;color:#fff;font-family:var(--fh);font-weight:700;font-size:15px;z-index:3}
+.dia-start .rond{width:74px;height:74px;border-radius:50%;background:var(--a);display:grid;place-items:center;box-shadow:0 8px 30px rgba(0,0,0,.3);transition:transform .15s}
+.dia-start:hover .rond{transform:scale(1.06)}
+.dia-start svg{width:30px;height:30px;margin-left:4px}
+.dia-start .wat{background:rgba(10,18,32,.75);padding:6px 14px;border-radius:var(--rad)}
+.dia-vol{position:absolute;right:10px;top:10px;z-index:4;width:34px;height:34px;border-radius:6px;border:0;background:rgba(10,18,32,.55);color:#fff;display:grid;place-items:center;opacity:.75}
+.dia-vol:hover{opacity:1}
+.dia-vol svg{width:17px;height:17px}
+.dia-balk{padding:0 12px 10px}
+.dia-tijd{display:block;padding:10px 0 8px;position:relative}
+.dia-tijd::after{content:attr(data-t);position:absolute;right:0;top:-2px;font-size:11px;color:rgba(255,255,255,.55);font-variant-numeric:tabular-nums}
+.dia-lijn{display:block;height:3px;background:rgba(255,255,255,.14);border-radius:2px;overflow:hidden;margin-top:6px}
+.dia-lijn span{display:block;height:100%;width:0;background:var(--a);transition:width .25s linear}
+.dia-knoppen{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dia-k{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;display:grid;place-items:center}
+.dia-k:hover:not(:disabled){background:rgba(255,255,255,.14)}
+.dia-k:disabled{opacity:.3;cursor:default}
+.dia-k svg{width:16px;height:16px}
+.dia-nr{color:#fff;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;min-width:92px;text-align:center}
+.dia-auto{margin-left:auto;color:rgba(255,255,255,.7);font-size:12.5px;display:flex;align-items:center;gap:7px}
+.dia-auto input{accent-color:var(--a);width:16px;height:16px}
+.dia-strook{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.08)}
+.dia-strook button{position:relative;flex:none;width:86px;aspect-ratio:16/9;border:2px solid transparent;border-radius:3px;padding:0;background:#fff;overflow:hidden;opacity:.6}
+.dia-strook button img{width:100%;height:100%;object-fit:cover;display:block}
+.dia-strook button.gezien{opacity:.85}
+.dia-strook button.nu{border-color:var(--a);opacity:1}
+.dia-strook .heeft{position:absolute;right:3px;bottom:3px;width:8px;height:8px;border-radius:50%;background:var(--a);box-shadow:0 0 0 2px #fff}
+@media (max-width:600px){.dia-auto{margin-left:0;width:100%}.dia-strook button{width:64px}}
+
+/* ---------- beheer: presentatie ---------- */
+.pr-mod{padding:6px 0 10px;border-bottom:1px solid var(--line)}
+.pr-mod:last-child{border-bottom:0}
+.pr-mod-kop{display:flex;gap:10px;align-items:center;padding:10px 0 2px;font-family:var(--fh);font-size:14.5px}
+.pr-mod .regel{align-items:center}
+.pr-duim{flex:none;width:72px;aspect-ratio:16/9;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#fff;position:relative}
+.pr-duim img{width:100%;height:100%;object-fit:cover;display:block}
+.pr-duim.groot{width:168px}
+.pr-duim .nr{position:absolute;left:4px;top:4px;background:rgba(10,18,32,.8);color:#fff;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:3px}
+.pr-indeling{padding:6px 18px}
+.pr-rij{display:flex;gap:16px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+.pr-rij:last-child{border-bottom:0}
+.pr-rij.soort-hoofdstuk{border-top:3px solid var(--p);margin-top:10px;padding-top:16px}
+.pr-rij.soort-les{border-top:1px dashed var(--line-2)}
+.pr-rij-in{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.pr-rij .veld{max-width:520px}
+.pr-keus{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line-2);border-radius:var(--rad);overflow:hidden;width:max-content;max-width:100%}
+.pr-keus button{border:0;background:var(--surface);padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--ink-2);border-right:1px solid var(--line)}
+.pr-keus button:last-child{border-right:0}
+.pr-keus button[aria-pressed="true"]{background:var(--p);color:var(--p-ink)}
+@media (max-width:600px){.pr-rij{flex-direction:column}.pr-duim.groot{width:100%}}
+.pr-balk{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;margin:12px 0 6px}
+.pr-balk span{display:block;height:100%;width:0;background:var(--a);transition:width .2s}
+.pr-strook{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 12px;margin-bottom:12px}
+.pr-strook button{position:relative;flex:none;width:120px;aspect-ratio:16/9;padding:0;border:2px solid var(--line);border-radius:4px;overflow:hidden;background:#fff}
+.pr-strook button[aria-current="true"]{border-color:var(--a)}
+.pr-strook img{width:100%;height:100%;object-fit:cover;display:block}
+.pr-strook .nr{position:absolute;left:4px;top:4px;background:rgba(10,18,32,.8);color:#fff;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:3px}
+.pr-strook .heeft{position:absolute;right:4px;bottom:4px;width:20px;height:20px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center}
+.pr-strook .heeft svg{width:11px;height:11px}
+.pr-werk{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(260px,1fr);gap:22px;align-items:start}
+@media (max-width:980px){.pr-werk{grid-template-columns:1fr}}
+.pr-voorbeeld .dia-toneel{border:1px solid var(--line);border-radius:var(--radc);box-shadow:var(--sh-2)}
+.pr-instel{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);padding:16px 18px}
+.pr-schuif input[type=range]{width:100%;accent-color:var(--a)}
+.pr-schuif label span{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.pr-kleurrij{display:flex;gap:10px;align-items:center}
+.pr-kleur{width:34px;height:34px;border-radius:6px;border:1px solid var(--line-2);background:#00b140}
+.pr-noti summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.pr-noti p{font-size:13px;color:var(--ink-2);margin-top:6px;max-height:160px;overflow:auto}
+.linkknop{background:none;border:0;padding:0;color:var(--a);font-weight:700;text-decoration:underline;font-size:inherit}
+.kijk-concept{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600}
+.kijk-concept input{accent-color:var(--a);width:16px;height:16px}
+
+/* ================= BHV-STAN (stan.js) ================= */
+.stan{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);bottom:0;z-index:150;display:flex;align-items:flex-end;gap:2px;pointer-events:none;max-width:calc(100vw - 20px)}
+.stan[hidden]{display:none}
+.stan-pop{height:210px;width:auto;display:block;filter:drop-shadow(0 8px 14px rgba(15,31,61,.22));transform-origin:50% 100%}
+.stan-ballon{pointer-events:auto;position:relative;background:#fff;border:2px solid var(--p);border-radius:16px 16px 4px 16px;padding:12px 44px 13px 16px;max-width:260px;margin-bottom:128px;box-shadow:0 10px 28px rgba(15,31,61,.18);transform-origin:100% 100%}
+.stan-naam{display:block;font-family:var(--fh);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--a);margin-bottom:3px}
+.stan-tekst{margin:0;font-family:var(--fh);font-weight:700;font-size:15.5px;line-height:1.32;color:var(--p)}
+.stan-weg{position:absolute;right:6px;top:6px;width:32px;height:32px;border-radius:50%;border:0;background:var(--surface-2);color:var(--ink-2);display:grid;place-items:center;padding:0}
+.stan-weg:hover{background:var(--line)}
+.stan-weg svg{width:13px;height:13px}
+.stan.in .stan-pop{animation:stanSpring .55s cubic-bezier(.2,1.4,.4,1) both, stanDein 4s ease-in-out .6s infinite}
+.stan.in .stan-ballon{animation:stanBallon .4s cubic-bezier(.2,1.3,.4,1) .18s both}
+.stan.uit{opacity:0;transform:translateY(18px);transition:opacity .25s,transform .25s}
+@keyframes stanSpring{0%{transform:translateY(110%)}70%{transform:translateY(-4%)}100%{transform:translateY(0)}}
+@keyframes stanDein{0%,100%{transform:rotate(0)}50%{transform:rotate(-1.6deg)}}
+@keyframes stanBallon{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:scale(1)}}
+@media (max-width:600px){
+  .stan{right:6px;left:6px;justify-content:flex-end}
+  .stan-pop{height:128px}
+  .stan-ballon{margin-bottom:64px;max-width:none;flex:1;font-size:14px;padding:10px 48px 11px 13px}
+  .stan-tekst{font-size:14.5px}
+  .stan-weg{width:44px;height:44px;right:2px;top:50%;margin-top:-22px;background:transparent}
+}
+@media (prefers-reduced-motion:reduce){.stan.in .stan-pop,.stan.in .stan-ballon{animation:none}.stan.uit{transition:none}}
+@media print{.stan{display:none!important}}
+/* beheer: Stan */
+.stan-rij{display:grid;grid-template-columns:56px minmax(0,1fr) 150px auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.stan-rij:last-child{border-bottom:0}
+.stan-rij img{width:56px;height:64px;object-fit:contain}
+.stan-rij textarea{width:100%;min-height:46px;resize:vertical;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-2);border-radius:4px;background:var(--surface)}
+.stan-rij select{font:inherit;font-size:13.5px;padding:8px;border:1px solid var(--line-2);border-radius:4px;background:var(--surface)}
+.stan-rij.uitgezet{opacity:.5}
+@media (max-width:700px){.stan-rij{grid-template-columns:48px minmax(0,1fr)}.stan-rij>:nth-child(n+3){grid-column:2}}

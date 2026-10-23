@@ -159,3 +159,67 @@ Environment variables:
 - de service_role key van Supabase
 - het databasewachtwoord
 - de API key van de maildienst
+
+PRESENTATIE MET GREENSCREEN
+---------------------------
+Onder Beheer, tabblad Presentatie, lees je een PowerPoint in. Elke
+dia wordt een stap in de les, en per dia koppel je een video die op
+greenscreen is opgenomen. Het groen wordt tijdens het afspelen in de
+browser weggehaald, zodat de presentator in de dia staat.
+
+Inlezen:
+1. Exporteer de presentatie in PowerPoint als PDF. Daar komen de
+   beelden van de dia's uit
+2. Kies de PDF en, aanbevolen, ook de .pptx. Daar komen de secties,
+   titels en notities uit. Verborgen dia's worden overgeslagen
+3. Een sectie wordt een hoofdstuk, een titeldia een nieuwe les. Dat
+   pas je per dia aan voor je opslaat
+4. Opslaan zet alles klaar als CONCEPT. Cursisten zien nog niets
+
+Video's:
+- Per dia een MP4 of MOV kiezen. Groter dan 50 MB wordt eerst in de
+  browser kleiner gemaakt naar 720p. Dat duurt even lang als de video,
+  houd het venster dan open
+- Kies links, midden of rechts, schuif de grootte, en klik zo nodig
+  op het groen om de kleur van het doek te kiezen
+- Deze plek voor alle dia's: zelfde stand voor de hele les
+
+Publiceren:
+- Bekijk als cursist laat het concept zien zoals cursisten het
+  krijgen. Ook via het vinkje boven Mijn cursus
+- Publiceren zet de oude basishoofdstukken in het archief en het
+  concept live. Klanthoofdstukken (Westerkwartier) blijven staan
+- Vorige versie terugzetten draait dat terug. Er wordt niets
+  weggegooid
+
+Database: supabase/10_presentatie.sql (is al gedraaid op 22 oktober).
+De dia's en video's staan in Supabase Storage, bucket presentaties.
+
+BHV-STAN
+--------
+Stan is de rechterhand van Dirk Jan. Hij verschijnt rechtsonder met
+een korte tekstballon die je wegklikt met het kruisje of Escape.
+
+Wanneer hij iets zegt:
+- De eerste keer dat een cursist binnenkomt: zijn introductie
+- Bij de eerste les van een hoofdstuk, en bij een les over reanimatie
+- Na een goed of fout antwoord bij de evaluatievragen
+- Bij het starten van een kennistoets of het examen, en bij de uitslag
+- Als een hoofdstuk af is
+- Op een dia waar je in het beheer een tekst voor Stan hebt gezet
+
+Wanneer hij zwijgt:
+- Zolang een video van Dirk Jan speelt
+- Op een dia die je als serieus hebt gemarkeerd
+- Na een uitspraak een halve minuut, behalve als reactie op een antwoord
+
+De teksten staan in de database (tabel stan_uitspraken) en pas je aan
+onder Beheer, tabblad Stan. Per cursist wordt onthouden welke teksten
+al geweest zijn, zodat hij zich niet herhaalt.
+
+De afbeeldingen staan in img/stan: standaard, zwaait, tip en duim, als
+WebP met doorzichtige achtergrond. Nieuwe houdingen erbij: zet het
+bestand in die map en voeg de naam toe in stan.js (POSES) en in de
+database (stan_pose_check in 11_stan.sql).
+
+Database: supabase/11_stan.sql (is al gedraaid op 23 oktober).
