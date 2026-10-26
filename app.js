@@ -280,10 +280,74 @@
     });
   });
 
-  $("#uitloggen").addEventListener("click", function () {
+  function uitloggen() {
     if (!magWeg()) return;
     vergeetPushToken().then(function () { return sb.auth.signOut(); })
       .then(function () { vergeetToets(); location.reload(); });
+  }
+
+  /* Het accountmenu: uitloggen en je account verwijderen. Apple eist dat
+     verwijderen in de app zelf kan, dus het staat hier voor iedereen. */
+  $("#account-knop").addEventListener("click", function () {
+    var o = document.querySelector(".bericht");
+    if (o) o.remove();
+    var p = S.profiel || {};
+    var naam = ((p.voornaam || "") + " " + (p.achternaam || "")).trim();
+    var d = document.createElement("div");
+    d.className = "bericht goed-bericht";
+    d.setAttribute("role", "dialog");
+    d.setAttribute("aria-label", "Account");
+    function stap1() {
+      d.innerHTML = '<div class="bericht-in"><b>Account</b><p>' +
+        (naam ? esc(naam) + "<br>" : "") + esc(p.email || "") + "</p>" +
+        '<div class="btn-row"><button type="button" class="btn btn-a" data-k="uit">Uitloggen</button>' +
+        '<button type="button" class="btn btn-g" data-k="dicht">Sluiten</button></div>' +
+        (p.id && p.rol !== "beheerder"
+          ? '<p class="klein" style="margin:18px 0 0"><a href="#" data-k="weg" style="color:var(--err)">Account verwijderen</a></p>'
+          : "") +
+        "</div>";
+    }
+    function stap2() {
+      d.className = "bericht";
+      d.innerHTML = '<div class="bericht-in"><b>Account verwijderen?</b>' +
+        "<p>Je naam, mailadres, voortgang en toetsresultaten worden verwijderd en je kunt niet meer inloggen. " +
+        "Heb je een certificaat, dan bewaren we alleen het nummer en de datums, zonder je naam. " +
+        "Dit kun je niet terugdraaien.</p>" +
+        '<div class="btn-row"><button type="button" class="btn btn-a" data-k="ja" style="background:var(--err);border-color:var(--err)">Ja, verwijder mijn account</button>' +
+        '<button type="button" class="btn btn-g" data-k="dicht">Annuleren</button></div>' +
+        '<p class="klein" id="weg-stand" style="margin:12px 0 0"></p></div>';
+    }
+    stap1();
+    d.addEventListener("click", function (e) {
+      var k = e.target.closest("[data-k]");
+      if (!k && e.target === d) { d.remove(); return; }
+      if (!k) return;
+      e.preventDefault();
+      var w = k.dataset.k;
+      if (w === "dicht") d.remove();
+      if (w === "uit") { d.remove(); uitloggen(); }
+      if (w === "weg") { if (!magWeg()) return; stap2(); d.querySelector('[data-k="dicht"]').focus(); }
+      if (w === "ja") {
+        k.disabled = true;
+        $("#weg-stand").textContent = "Bezig met verwijderen";
+        vergeetPushToken().then(function () { return sb.rpc("verwijder_mijn_account"); }).then(function (q) {
+          if (q.error) throw q.error;
+          return sb.auth.signOut().catch(function () {});
+        }).then(function () {
+          vergeetToets();
+          try { Object.keys(localStorage).forEach(function (s) { if (/^bhv/.test(s)) localStorage.removeItem(s); }); } catch (x) {}
+          d.remove();
+          melding("Je account is verwijderd", "Je gegevens zijn gewist. Bedankt dat je met BHV Roden hebt geleerd.", "goed");
+          document.querySelector(".bericht button").addEventListener("click", function () { location.reload(); });
+        }).catch(function (fout) {
+          k.disabled = false;
+          $("#weg-stand").textContent = "Dat lukte niet. Probeer het later opnieuw of mail naar info@bhvroden.nl.";
+          if (window.console) console.warn(fout);
+        });
+      }
+    });
+    document.body.appendChild(d);
+    d.querySelector("button").focus();
   });
   $("#nav-overzicht").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
   $("#nav-beheer").addEventListener("click", function () { if (magWeg()) naarBeheer("overzicht"); });
