@@ -770,12 +770,6 @@
      dienst kunt wisselen zonder dat hier iets verandert.
      --------------------------------------------------------------------- */
   function spelerHtml(v, titel) {
-    // Eigen opslag: een directe link naar een mp4 (bijvoorbeeld Supabase Storage).
-    if (v && v.url) {
-      return '<div class="video"><video controls playsinline preload="metadata"' +
-        (v.poster ? ' poster="' + esc(v.poster) + '"' : "") +
-        ' src="' + esc(v.url) + '" title="' + esc(titel || v.titel || "Video") + '"></video></div>';
-    }
     var bib = (S.video && S.video.bibliotheek) || "";
     var domein = (S.video && S.video.domein) || "iframe.mediadelivery.net";
     var id = v && (v.video || v.id);
@@ -1091,9 +1085,9 @@
       /* Een les met eigen video's. Kop eerst, dan de films. */
       uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
-      // Elke les begint met de video, de tekst staat eronder om na te lezen.
-      uit += films;
+      // De tekst leidt de video in, dus die staat erboven.
       if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+      uit += films;
     } else {
       /* Nog geen video. Een stilstaand beeld met uitleg. */
       uit += '<div class="speler"><div class="toneel">' +
@@ -1143,7 +1137,6 @@
 
   function prozaHtml(blokken) {
     if (!Array.isArray(blokken)) return "";
-    if (window.BHVBlokken) return window.BHVBlokken.html(blokken);
     return blokken.map(function (b) {
       if (b.t === "h") return "<h3>" + b.v + "</h3>";
       if (b.t === "ul") return "<ul>" + (b.v || []).map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>";
@@ -1633,7 +1626,7 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
@@ -1658,9 +1651,6 @@
       if (tab === "videos")            return tekenVideos();
       if (tab === "presentatie")       return tekenPresentatie();
       if (tab === "stan")              return tekenStan();
-      if (tab === "inhoud")            return window.BHVInhoud
-        ? window.BHVInhoud.beheer($("#beheer-paneel"), { sb: sb, toast: toast, melding: melding, IC: IC, herlaadCursus: function () { S.herladen = true; } })
-        : null;
       if (tab === "controle")          return tekenControle();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
