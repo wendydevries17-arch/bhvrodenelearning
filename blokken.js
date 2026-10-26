@@ -44,6 +44,9 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>";
   }
 
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function kaal(s) { return String(s || "").replace(/<[^>]*>/g, ""); }
+
   function blok(b) {
     if (!b || !b.t) return "";
     switch (b.t) {
@@ -75,6 +78,14 @@
       case "stan":
         return '<div class="lb-stan"><img src="img/stan/' + (/^(standaard|zwaait|tip|duim)$/.test(b.pose || "") ? b.pose : "tip") +
           '.webp" alt="" loading="lazy" width="88" height="120"><div><span class="lb-stan-naam">Tip van Stan</span><p>' + (b.v || "") + "</p></div></div>";
+      case "foto":
+        if (!b.url) return "";
+        return '<figure class="lb-foto"><img src="' + esc(b.url) + '" alt="' + esc(kaal(b.v)) + '" loading="lazy">' +
+          (b.v ? "<figcaption>" + b.v + "</figcaption>" : "") + "</figure>";
+      case "video":
+        if (!b.url) return "";
+        return '<figure class="lb-video"><video src="' + esc(b.url) + '" controls playsinline preload="metadata"></video>' +
+          (b.v ? "<figcaption>" + b.v + "</figcaption>" : "") + "</figure>";
       default: return "<p>" + (b.v || "") + "</p>";
     }
   }
@@ -85,7 +96,7 @@
     soorten: [
       ["p", "Alinea"], ["h", "Tussenkop"], ["ul", "Opsomming"], ["stappen", "Stappenplan"],
       ["kaarten", "Tegels"], ["cijfers", "Kerncijfers"], ["goedfout", "Wel en niet doen"],
-      ["call", "Let op"], ["stan", "Tip van Stan"]
+      ["call", "Let op"], ["stan", "Tip van Stan"], ["foto", "Foto"], ["video", "Video"]
     ]
   };
 })();

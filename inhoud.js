@@ -243,6 +243,7 @@
     if (t === "cijfers") return { t: t, v: [{ n: "", v: "" }] };
     if (t === "goedfout") return { t: t, goed: [""], fout: [""] };
     if (t === "stan") return { t: t, v: "", pose: "tip" };
+    if (t === "foto" || t === "video") return { t: t, url: "", v: "" };
     return { t: t, v: "" };
   }
 
@@ -271,6 +272,16 @@
       var body = "";
       if (b.t === "p" || b.t === "call") body = '<textarea data-veld="v" rows="4">' + esc(b.v) + "</textarea>";
       else if (b.t === "h") body = '<input data-veld="v" value="' + esc(b.v) + '">';
+      else if (b.t === "foto" || b.t === "video") {
+        var isFoto = b.t === "foto";
+        body = (b.url
+            ? (isFoto ? '<img class="ih-media" src="' + esc(b.url) + '" alt="">' : '<video class="ih-media" src="' + esc(b.url) + '" controls playsinline preload="metadata"></video>')
+            : '<div class="ih-hint">Nog geen ' + (isFoto ? "foto" : "video") + " gekozen.</div>") +
+          '<label class="btn btn-g btn-sm ih-kies">' + (b.url ? "Andere " : "Kies een ") + (isFoto ? "foto" : "video") +
+          '<input type="file" data-upload="' + i + '" accept="' + (isFoto ? "image/jpeg,image/png,image/webp" : "video/mp4,video/quicktime,video/webm") + '" hidden></label>' +
+          '<span class="lead" data-upload-stand="' + i + '"></span>' +
+          '<input data-veld="v" placeholder="Onderschrift (mag leeg)" value="' + esc(b.v) + '">';
+      }
       else if (b.t === "stan") body = '<textarea data-veld="v" rows="2">' + esc(b.v) + '</textarea><select data-veld="pose">' + opties(POSES, b.pose || "tip") + "</select>";
       else if (b.t === "ul") body = '<label class="ih-hint">Eén punt per regel</label><textarea data-veld="ul" rows="4">' + esc((b.v || []).join("\n")) + "</textarea>";
       else if (b.t === "goedfout") body = '<div class="ih-twee"><div><label class="ih-hint">Wel doen, één per regel</label><textarea data-veld="goed" rows="4">' + esc((b.goed || []).join("\n")) +
@@ -406,6 +417,25 @@
           });
         });
       });
+      $$("[data-upload]").forEach(function (inp) {
+        inp.addEventListener("change", function () {
+          var f = inp.files && inp.files[0];
+          if (!f) return;
+          var i = Number(inp.dataset.upload), b = blokken[i];
+          var stand = $('[data-upload-stand="' + i + '"]');
+          if (f.size > 48 * 1024 * 1024) { C.ctx.melding("Dit bestand is te groot", "Een foto of video mag hier maximaal 48 MB zijn. Maak de video korter of exporteer hem kleiner, bijvoorbeeld in 720p."); return; }
+          stand.textContent = "Bezig met uploaden";
+          var naam = f.name.toLowerCase().replace(/[^a-z0-9.]+/g, "-");
+          var pad = "casus/" + l.id + "/" + Date.now() + "-" + naam;
+          var store = C.ctx.sb.storage.from("presentaties");
+          store.upload(pad, f, { contentType: f.type || undefined, upsert: false }).then(function (r) {
+            if (r.error) throw r.error;
+            var url = store.getPublicUrl(pad).data.publicUrl;
+            opnieuw(function () { b.url = url; });
+            C.ctx.toast((b.t === "foto" ? "Foto" : "Video") + " staat erin. Vergeet niet op te slaan.");
+          }).catch(function (e) { stand.textContent = ""; fout("Uploaden lukte niet", e); });
+        });
+      });
       $("#ih-op").addEventListener("click", bewaar);
     }
 
@@ -416,6 +446,7 @@
       var schoon = blokken.filter(function (b) {
         if (b.t === "ul") return b.v.length;
         if (b.t === "goedfout") return b.goed.length || b.fout.length;
+        if (b.t === "foto" || b.t === "video") return !!b.url;
         if (Array.isArray(b.v)) { b.v = b.v.filter(function (r) { return (r.k || r.n || r.v || "").trim(); }); return b.v.length; }
         return String(b.v || "").trim();
       });

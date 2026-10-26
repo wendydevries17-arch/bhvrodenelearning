@@ -716,11 +716,15 @@
           sb.from("instellingen").select("sleutel, waarde").eq("sleutel", "video_dienst").maybeSingle(),
           S.profiel.rol === "beheerder"
             ? sb.from("organisaties").select("id, naam, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url").eq("actief", true).order("is_eigenaar", { ascending: false }).order("naam")
-            : Promise.resolve({ data: [] })
+            : Promise.resolve({ data: [] }),
+          // Lessen die voor een bedrijf uit staan. Bestaat de tabel nog niet, dan staat alles aan.
+          sb.from("klant_les_uit").select("organisatie_id, les_id").then(function (x) { return x.error ? { data: [] } : x; })
         ]);
       })
       .then(function (r) {
         r.forEach(function (x) { if (x.error) throw x.error; });
+        S.lesUit = {};
+        (r[6].data || []).forEach(function (u) { (S.lesUit[u.organisatie_id] = S.lesUit[u.organisatie_id] || {})[u.les_id] = true; });
         // We bewaren alles wat de database teruggeeft, en laten
         // daarna alleen zien wat hoort bij het bedrijf waar je naar
         // kijkt. Voor een cursist is dat altijd zijn eigen bedrijf.
@@ -896,10 +900,13 @@
     return !m.organisatie_id || m.organisatie_id === kijkOrgId();
   }
   function bouwModules() {
+    var uit = (S.lesUit && S.lesUit[kijkOrgId()]) || {};
     S.modules = (S.alleModules || []).filter(bijMijnBedrijf);
     S.lessen = (S.alleLessen || []).filter(function (l) {
-      return S.modules.some(function (m) { return m.id === l.module_id; });
+      return !uit[l.id] && S.modules.some(function (m) { return m.id === l.module_id; });
     });
+    // Een hoofdstuk waarvan alle lessen uit staan, valt helemaal weg.
+    S.modules = S.modules.filter(function (m) { return S.lessen.some(function (l) { return l.module_id === m.id; }); });
     S.modules.forEach(function (m) {
       m.lessen = S.lessen.filter(function (l) { return l.module_id === m.id; });
     });
@@ -1195,6 +1202,7 @@
     var films = videosHtml(l);
     var heeftTekst = Array.isArray(l.tekst) && l.tekst.length > 0;
     var heeftDias = Array.isArray(l.dias) && l.dias.length > 0 && !!window.BHVDias;
+    var heeftMedia = heeftTekst && l.tekst.some(function (b) { return (b.t === "foto" || b.t === "video") && b.url; });
     if (S.diaSpeler) { S.diaSpeler.stop(); S.diaSpeler = null; }
 
     if (heeftDias) {
@@ -1203,7 +1211,7 @@
         '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
       if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
-    } else if (films) {
+    } else if (films || heeftMedia) {
       /* Een les met eigen video's. Kop eerst, dan de films. */
       uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
@@ -1824,7 +1832,7 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1, lessenplan: 1 };
 
   function naarBeheer(tab) {
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
@@ -1853,6 +1861,7 @@
         ? window.BHVInhoud.beheer($("#beheer-paneel"), { sb: sb, toast: toast, melding: melding, IC: IC, herlaadCursus: function () { S.herladen = true; } })
         : null;
       if (tab === "controle")          return tekenControle();
+      if (tab === "lessenplan")        return tekenLessenplan();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
         '<div class="let"><b>Er ging iets mis</b>' + esc(e && e.message ? e.message : e) +
@@ -2180,6 +2189,132 @@
   }
 
   /* ---------- bedrijven ---------- */
+  /* ---------- lessen per klant ----------
+     Per bedrijf zet je lessen aan of uit. Met het slotje maak je een les
+     verplicht, die kan dan bij geen enkel bedrijf meer uit. Onderaan
+     staat de totale tijd van wat aan staat, die rekent meteen mee. */
+  var LP = { org: null };
+
+  function lesSeconden(l) {
+    var s = 0;
+    (Array.isArray(l.videos) ? l.videos : []).forEach(function (v) { s += Number(v.duur) || 0; });
+    if (!s) (Array.isArray(l.dias) ? l.dias : []).forEach(function (d) { s += Number(d.video && d.video.duur) || 0; });
+    return s || Number(l.duur_seconden) || 0;
+  }
+  function tijd(sec) {
+    sec = Math.round(sec || 0);
+    var u = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return u ? u + " uur " + m + " min" : m + ":" + String(s).padStart(2, "0");
+  }
+
+  function tekenLessenplan() {
+    var orgs = (B.organisaties || []).filter(function (o) { return o.actief !== false; });
+    if (!LP.org || !orgs.some(function (o) { return o.id === LP.org; })) {
+      var klant = orgs.filter(function (o) { return !o.is_eigenaar; })[0] || orgs[0];
+      LP.org = klant && klant.id;
+    }
+    return sb.from("cursussen").select("id").eq("actief", true).is("organisatie_id", null).limit(1).then(function (r) {
+      if (r.error) throw r.error;
+      var cid = r.data && r.data[0] && r.data[0].id;
+      return Promise.all([
+        sb.from("modules").select("id, titel, volgorde, organisatie_id, status").eq("cursus_id", cid).eq("status", "live").order("volgorde"),
+        sb.from("lessen").select("id, module_id, titel, volgorde, videos, dias, duur_seconden, verplicht").order("volgorde"),
+        sb.from("klant_les_uit").select("organisatie_id, les_id")
+      ]);
+    }).then(function (r) {
+      r.forEach(function (x) { if (x.error) throw x.error; });
+      LP.modules = r[0].data || [];
+      var mids = {}; LP.modules.forEach(function (m) { mids[m.id] = true; });
+      LP.lessen = (r[1].data || []).filter(function (l) { return mids[l.module_id]; });
+      LP.uit = {};
+      (r[2].data || []).forEach(function (u) { (LP.uit[u.organisatie_id] = LP.uit[u.organisatie_id] || {})[u.les_id] = true; });
+      tekenLP();
+    });
+  }
+
+  function tekenLP() {
+    var orgs = (B.organisaties || []).filter(function (o) { return o.actief !== false; });
+    var uit = LP.uit[LP.org] || {};
+    var mods = LP.modules.filter(function (m) { return !m.organisatie_id || m.organisatie_id === LP.org; });
+    var h = '<div class="kop"><h1>Lessen per <em>klant</em></h1>' +
+      "<p>Kies per bedrijf welke lessen de cursisten krijgen. Met het slotje maak je een les verplicht voor iedereen. De totale tijd onderaan rekent meteen mee.</p></div>";
+    h += '<div class="lp-kies"><label for="lp-org">Bedrijf</label><select class="kies" id="lp-org">' +
+      orgs.map(function (o) {
+        return '<option value="' + esc(o.id) + '"' + (o.id === LP.org ? " selected" : "") + ">" + esc(o.naam) + (o.is_eigenaar ? " (eigen omgeving)" : "") + "</option>";
+      }).join("") + "</select></div>";
+    var totaal = 0, aan = 0, alle = 0;
+    h += '<div class="paneel lp"><table class="lp-tabel"><thead><tr><th class="lp-aan">Aan</th><th>Les</th><th class="lp-slot">Verplicht</th><th class="lp-tijd">Tijd</th></tr></thead><tbody>';
+    mods.forEach(function (m, mi) {
+      var ls = LP.lessen.filter(function (l) { return l.module_id === m.id; });
+      if (!ls.length) return;
+      var mt = 0, maan = 0;
+      ls.forEach(function (l) { if (!uit[l.id]) { mt += lesSeconden(l); maan++; } });
+      var allesAan = maan === ls.length, niets = maan === 0;
+      h += '<tr class="lp-mod"><td class="lp-aan"><input type="checkbox" data-lp-mod="' + esc(m.id) + '"' + (allesAan ? " checked" : "") + ' aria-label="Hele hoofdstuk aan of uit"></td>' +
+        '<td colspan="2"><b>' + esc(m.titel) + "</b>" + (m.organisatie_id ? ' <span class="chip nieuw">eigen hoofdstuk</span>' : "") +
+        '<span class="lp-sub">' + maan + " van " + ls.length + " lessen aan</span></td>" +
+        '<td class="lp-tijd"><b>' + tijd(mt) + "</b></td></tr>";
+      ls.forEach(function (l) {
+        var isAan = !uit[l.id], sec = lesSeconden(l);
+        alle++; if (isAan) { aan++; totaal += sec; }
+        h += '<tr class="lp-les' + (isAan ? "" : " lp-uit") + '"><td class="lp-aan">' +
+          '<label class="lp-schakel"><input type="checkbox" data-lp-les="' + esc(l.id) + '"' + (isAan ? " checked" : "") + (l.verplicht ? " disabled" : "") +
+          ' aria-label="' + esc(l.titel) + ' aan of uit"><span></span></label></td>' +
+          "<td>" + esc(l.titel) + "</td>" +
+          '<td class="lp-slot"><button type="button" class="lp-slotje' + (l.verplicht ? " dicht" : "") + '" data-lp-slot="' + esc(l.id) + '" aria-pressed="' + (l.verplicht ? "true" : "false") + '" title="' + (l.verplicht ? "Verplicht voor iedereen. Klik om los te maken." : "Klik om verplicht te maken") + '">' +
+          (l.verplicht ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+                       : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>') +
+          "</button></td>" +
+          '<td class="lp-tijd">' + (sec ? tijd(sec) : '<span class="lp-sub">geen video</span>') + "</td></tr>";
+      });
+    });
+    h += '</tbody><tfoot><tr><td></td><td><b>Totaal</b><span class="lp-sub">' + aan + " van " + alle + " lessen aan</span></td><td></td>" +
+      '<td class="lp-tijd"><b>' + tijd(totaal) + "</b></td></tr></tfoot></table></div>";
+    $("#beheer-paneel").innerHTML = h;
+
+    $("#lp-org").addEventListener("change", function (e) { LP.org = e.target.value; tekenLP(); });
+    $("#beheer-paneel").querySelectorAll("[data-lp-les]").forEach(function (c) {
+      c.addEventListener("change", function () { zetLes([c.dataset.lpLes], c.checked); });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-lp-mod]").forEach(function (c) {
+      c.addEventListener("change", function () {
+        var ids = LP.lessen.filter(function (l) { return l.module_id === c.dataset.lpMod && !l.verplicht; }).map(function (l) { return l.id; });
+        zetLes(ids, c.checked);
+      });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-lp-slot]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var l = LP.lessen.find(function (x) { return x.id === b.dataset.lpSlot; });
+        var nieuw = !l.verplicht;
+        l.verplicht = nieuw;
+        if (nieuw) Object.keys(LP.uit).forEach(function (o) { delete LP.uit[o][l.id]; });
+        tekenLP();
+        sb.rpc("zet_les_verplicht", { p_les: l.id, p_verplicht: nieuw }).then(function (r) {
+          if (r.error) throw r.error;
+          toast(nieuw ? "Verplicht voor iedereen" : "Niet meer verplicht");
+          S.herladen = true;
+        }).catch(function (e) { l.verplicht = !nieuw; tekenLP(); melding("Dat lukte niet", "Er is niets veranderd. Probeer het zo nog een keer.", "mis", e); });
+      });
+    });
+  }
+
+  function zetLes(ids, aan) {
+    if (!ids.length) { tekenLP(); return; }
+    var org = LP.org, u = (LP.uit[org] = LP.uit[org] || {});
+    var vorig = {}; ids.forEach(function (id) { vorig[id] = !!u[id]; if (aan) delete u[id]; else u[id] = true; });
+    tekenLP();
+    Promise.all(ids.map(function (id) {
+      return sb.rpc("zet_les_voor_klant", { p_org: org, p_les: id, p_aan: aan }).then(function (r) { if (r.error) throw r.error; });
+    })).then(function () {
+      S.herladen = true;
+      if (S.lesUit) { S.lesUit[org] = Object.assign({}, u); }
+    }).catch(function (e) {
+      ids.forEach(function (id) { if (vorig[id]) u[id] = true; else delete u[id]; });
+      tekenLP();
+      melding("Opslaan lukte niet", "Er is niets veranderd. Probeer het zo nog een keer.", "mis", e);
+    });
+  }
+
   function tekenBedrijven() {
     var uit = '<div class="kop"><h1>Klant<em>bedrijven</em></h1>' +
       "<p>Elk bedrijf krijgt een eigen omgeving in zijn eigen huisstijl. De cursus blijft dezelfde, het certificaat blijft van BHV Roden.</p></div>";
