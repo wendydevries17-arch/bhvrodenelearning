@@ -1104,9 +1104,22 @@
   /* =====================================================================
      LES
      ===================================================================== */
+  /* De lessenlijst in- of uitklappen (alleen zichtbaar op kleine schermen). */
+  function zetToc(open) {
+    var a = document.querySelector("#view-les .inhoud");
+    if (!a) return;
+    a.classList.toggle("open", open);
+    $("#toc-knop").setAttribute("aria-expanded", open ? "true" : "false");
+    $("#toc-knop").textContent = open ? "Lessen verbergen" : "Alle lessen tonen";
+  }
+  $("#toc-knop").addEventListener("click", function () {
+    zetToc(!document.querySelector("#view-les .inhoud").classList.contains("open"));
+  });
+
   function naarLes(id) {
     if (!lesOpen(id)) { toast("Rond eerst de vorige les af"); return; }
     S.huidig = id;
+    zetToc(false);
     toon("view-les");
     tekenToc();
     tekenLes();
