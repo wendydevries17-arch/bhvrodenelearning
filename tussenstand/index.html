@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="robots" content="noindex, nofollow">
+<title>BHV Roden tussenstand</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=Public+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: één kolom, per video een kop, de speler en een korte toelichting */
+:root{--bg:#F4F4F2;--kaart:#FFFFFF;--ink:#1C1C1C;--muted:#5E5E59;--navy:#0F1F3D;--rood:#B71C1C;--lijn:#DCDCD8;
+--fh:"Archivo","Helvetica Neue",Arial,sans-serif;--fb:"Public Sans","Helvetica Neue",Arial,sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0C1424;--kaart:#14203A;--ink:#EEF1F6;--muted:#A9B2C3;--navy:#EEF1F6;--rood:#FF6B5E;--lijn:#26365A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0C1424;--kaart:#14203A;--ink:#EEF1F6;--muted:#A9B2C3;--navy:#EEF1F6;--rood:#FF6B5E;--lijn:#26365A;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--fb);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 64px}
+main{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:44px}
+header .e{font:600 13px/1 var(--fb);letter-spacing:.14em;text-transform:uppercase;color:var(--rood);margin-bottom:14px}
+h1{font:800 clamp(34px,6vw,56px)/1.05 var(--fh);color:var(--navy);margin:0;letter-spacing:-.02em;text-wrap:balance}
+header p{max-width:62ch;color:var(--muted);margin:16px 0 0}
+section{display:flex;flex-direction:column;gap:14px}
+h2{font:700 26px/1.2 var(--fh);color:var(--navy);margin:0;text-wrap:balance}
+.duur{font:600 13px/1 var(--fb);color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+video{width:100%;max-width:100%;aspect-ratio:16/9;background:#000;border-radius:12px;display:block}
+section p{margin:0;max-width:65ch;color:var(--ink)}
+ul{margin:0;padding-left:20px;max-width:65ch}
+footer{border-top:1px solid var(--lijn);padding-top:20px;color:var(--muted);font-size:15px}
+</style>
+</head><body><main>
+<header>
+ <div class="e">BHV Roden e-learning · 23 oktober 2026</div>
+ <h1>Tussenstand van de nieuwe e-learning</h1>
+ <p>De complete cursus staat klaar: 13 hoofdstukken en 52 lessen, met BHV-Stan als begeleider. Hieronder een rondleiding en de eerste les zoals die straks wordt.</p>
+</header>
+<section>
+ <span class="duur">Rondleiding · 2,5 minuut</span>
+ <h2>Zo ziet het eruit en zo werkt het</h2>
+ <video controls preload="metadata" playsinline poster="poster1.jpg" src="rondleiding.mp4"></video>
+ <ul>
+  <li>De cursist: het overzicht, een les met video, de vragen na de les en Stan die reageert.</li>
+  <li>Het beheer: teksten en vragen zelf aanpassen, en per dia een greenscreen-opname van Dirk Jan.</li>
+ </ul>
+</section>
+<section>
+ <span class="duur">Voorbeeldles · 1,5 minuut</span>
+ <h2>Les 1: Welkom bij de e-learning</h2>
+ <video controls preload="metadata" playsinline poster="poster2.jpg" src="les1.mp4"></video>
+ <p>Stan praat in beeld bij de intro en vertelt daarna de les, terwijl de dia's in de huisstijl opbouwen. Op deze manier krijgen alle 52 lessen een video.</p>
+</section>
+<footer>Volgende stap: de video's voor de overige 51 lessen. Waar Dirk Jan een opname maakt, staat hij zelf in beeld.</footer>
+</main></body>
+
+</html>

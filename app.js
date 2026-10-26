@@ -770,6 +770,12 @@
      dienst kunt wisselen zonder dat hier iets verandert.
      --------------------------------------------------------------------- */
   function spelerHtml(v, titel) {
+    // Eigen opslag: een directe link naar een mp4 (bijvoorbeeld Supabase Storage).
+    if (v && v.url) {
+      return '<div class="video"><video controls playsinline preload="metadata"' +
+        (v.poster ? ' poster="' + esc(v.poster) + '"' : "") +
+        ' src="' + esc(v.url) + '" title="' + esc(titel || v.titel || "Video") + '"></video></div>';
+    }
     var bib = (S.video && S.video.bibliotheek) || "";
     var domein = (S.video && S.video.domein) || "iframe.mediadelivery.net";
     var id = v && (v.video || v.id);
@@ -1085,9 +1091,9 @@
       /* Een les met eigen video's. Kop eerst, dan de films. */
       uit += '<div class="leskop"><span class="eyebrow">' + esc(m ? m.titel : "") + "</span>" +
         "<h2>" + esc(l.titel) + "</h2></div>";
-      // De tekst leidt de video in, dus die staat erboven.
-      if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
+      // Elke les begint met de video, de tekst staat eronder om na te lezen.
       uit += films;
+      if (heeftTekst) uit += '<div class="proza">' + prozaHtml(l.tekst) + "</div>";
     } else {
       /* Nog geen video. Een stilstaand beeld met uitleg. */
       uit += '<div class="speler"><div class="toneel">' +
