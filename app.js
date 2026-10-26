@@ -282,7 +282,8 @@
 
   $("#uitloggen").addEventListener("click", function () {
     if (!magWeg()) return;
-    sb.auth.signOut().then(function () { vergeetToets(); location.reload(); });
+    vergeetPushToken().then(function () { return sb.auth.signOut(); })
+      .then(function () { vergeetToets(); location.reload(); });
   });
   $("#nav-overzicht").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
   $("#nav-beheer").addEventListener("click", function () { if (magWeg()) naarBeheer("overzicht"); });
@@ -558,6 +559,7 @@
           if (r.error) throw r.error;
           if (!r.data) throw new Error("geen-profiel");
           S.profiel = r.data;
+          meldApp({ type: "ingelogd" });
 
           var naam = [S.profiel.voornaam, S.profiel.achternaam].filter(Boolean).join(" ");
           var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "";
@@ -1338,6 +1340,51 @@
      TOETS EN EXAMEN
      ===================================================================== */
   var T = null;
+  /* ---------------------------------------------------------------------
+     De app
+
+     In de app van BHV Roden draait deze site in een WebView. De app zet
+     vooraf window.BHV_APP. Via meldApp() vertellen we de app iets, en de
+     app roept terug via window.BHVApp.
+     --------------------------------------------------------------------- */
+  function inApp() { return !!(window.BHV_APP && window.ReactNativeWebView); }
+  function meldApp(bericht) {
+    if (!inApp()) return;
+    try { window.ReactNativeWebView.postMessage(JSON.stringify(bericht)); } catch (e) { /* stil */ }
+  }
+  var PUSH_TOKEN = null;
+  function vergeetPushToken() {
+    if (!PUSH_TOKEN) return Promise.resolve();
+    return Promise.resolve(sb.rpc("vergeet_pushtoken", { p_token: PUSH_TOKEN })).catch(function () { /* stil */ });
+  }
+  window.BHVApp = {
+    pushToken: function (token, platform) {
+      if (!S.gebruiker || typeof token !== "string") return;
+      PUSH_TOKEN = token;
+      sb.rpc("bewaar_pushtoken", { p_token: token, p_platform: String(platform || "") })
+        .then(function () { /* bewaard */ }, function () { /* stil */ });
+    },
+    // Terug in de app na een tijd: het overzicht verversen, behalve tijdens een toets.
+    terug: function () {
+      if (toetsLoopt()) return;
+      if (!$("#view-dashboard").hidden) { S.herladen = true; naarDashboard(); }
+    }
+  };
+  function printInApp() {
+    var cert = document.querySelector("#toets-paneel .cert");
+    if (!cert) return;
+    var css = "";
+    Array.prototype.forEach.call(document.styleSheets, function (blad) {
+      try { Array.prototype.forEach.call(blad.cssRules, function (r) { css += r.cssText + "\n"; }); } catch (e) { /* ander domein */ }
+    });
+    var stijl = document.documentElement.getAttribute("style") || "";
+    var html = '<!doctype html><html style="' + esc(stijl) + '"><head><meta charset="utf-8">' +
+      '<base href="' + location.origin + '/"><style>' + css +
+      "body{background:#fff;margin:0;padding:24px} .cert{box-shadow:none;max-width:none}</style></head>" +
+      "<body>" + cert.outerHTML + "</body></html>";
+    meldApp({ type: "print", html: html });
+  }
+
   var TOETS_SLEUTEL = "bhv-toets";
 
   /* Een video onthoudt waar je was. Per apparaat, in de browser. */
@@ -1640,7 +1687,10 @@
       '<p class="lead" style="margin-top:12px">Het officiele bestand met de handtekening staat in je mail. ' +
       "Kun je die niet vinden, kijk dan ook even in je map ongewenste mail.</p>";
     $("#cert-terug").addEventListener("click", naarDashboard);
-    $("#cert-print").addEventListener("click", function () { window.print(); });
+    $("#cert-print").addEventListener("click", function () {
+      if (inApp()) { printInApp(); return; }
+      window.print();
+    });
   }
 
 
