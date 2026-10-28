@@ -105,7 +105,7 @@
   }
 
   function toon(id) {
-    ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-beheer"]
+    ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-beheer", "view-plan"]
       .forEach(function (v) { var e = $("#" + v); if (e) e.hidden = (v !== id); });
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     // Focus naar het nieuwe scherm, anders moet wie met het toetsenbord
@@ -282,6 +282,7 @@
 
   function uitloggen() {
     if (!magWeg()) return;
+    meldApp({ type: "uitgelogd" });
     vergeetPushToken().then(function () { return sb.auth.signOut(); })
       .then(function () { vergeetToets(); location.reload(); });
   }
@@ -332,6 +333,7 @@
         $("#weg-stand").textContent = "Bezig met verwijderen";
         vergeetPushToken().then(function () { return sb.rpc("verwijder_mijn_account"); }).then(function (q) {
           if (q.error) throw q.error;
+          meldApp({ type: "uitgelogd" });
           return sb.auth.signOut().catch(function () {});
         }).then(function () {
           vergeetToets();
@@ -352,6 +354,9 @@
   $("#nav-overzicht").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
   $("#nav-beheer").addEventListener("click", function () { if (magWeg()) naarBeheer("overzicht"); });
   $("#les-terug").addEventListener("click", function () { naarDashboard(); });
+  $("#plan-terug").addEventListener("click", function () {
+    if (S.profiel && S.profiel.rol === "contactpersoon") naarBeheer("bhvplan"); else naarDashboard();
+  });
   $("#toets-terug").addEventListener("click", function () { if (magWeg()) naarDashboard(); });
   $("#beheer-tabs").addEventListener("click", function (e) {
     var b = e.target.closest("button[data-tab]");
@@ -624,6 +629,7 @@
           if (!r.data) throw new Error("geen-profiel");
           S.profiel = r.data;
           meldApp({ type: "ingelogd" });
+          laadPlan();
 
           var naam = [S.profiel.voornaam, S.profiel.achternaam].filter(Boolean).join(" ");
           var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "";
@@ -982,6 +988,7 @@
     toon("view-dashboard");
     $("#nav-overzicht").hidden = false;
     tekenKijkbalk();
+    tekenPlanKaart();
 
     var rij = alleLessenOpVolgorde(), af = telAf();
     var pct = rij.length ? Math.round(af * 100 / rij.length) : 0;
@@ -1449,6 +1456,8 @@
       sb.rpc("bewaar_pushtoken", { p_token: token, p_platform: String(platform || "") })
         .then(function () { /* bewaard */ }, function () { /* stil */ });
     },
+    // De noodkaart in de app vraagt om het plan op het scherm te zetten.
+    plan: function () { if (S.profiel) naarPlan(); },
     // Terug in de app na een tijd: het overzicht verversen, behalve tijdens een toets.
     terug: function () {
       if (toetsLoopt()) return;
@@ -1862,6 +1871,7 @@
         : null;
       if (tab === "controle")          return tekenControle();
       if (tab === "lessenplan")        return tekenLessenplan();
+      if (tab === "bhvplan")           return tekenPlanBeheer();
     }).catch(function (e) {
       $("#beheer-paneel").innerHTML =
         '<div class="let"><b>Er ging iets mis</b>' + esc(e && e.message ? e.message : e) +
@@ -3400,4 +3410,191 @@
         : '<div class="let"><b>Er ontbreekt nog iets.</b> Hierboven staat bij elke rode regel welk bestand je nog moet draaien.</div>');
     });
   }
+
+  /* =====================================================================
+     ONS BHV-PLAN
+
+     Per bedrijf de praktische gegevens voor een noodgeval: adres voor 112,
+     verzamelplaats, waar de AED en EHBO-koffer zijn, wie je belt. De
+     contactpersoon van het bedrijf vult het in, iedereen van dat bedrijf
+     leest het. In de app gaat het mee naar de noodkaart, die ook zonder
+     internet werkt.
+     ===================================================================== */
+  var PLAN_VELDEN = [
+    ["adres", "Adres voor 112", "Straat, huisnummer en plaats. Zet erbij welke ingang de ambulance moet nemen.", 2],
+    ["verzamelplaats", "Verzamelplaats", "Bijvoorbeeld: parkeerplaats aan de voorkant, bij de vlaggenmast.", 2],
+    ["alarm", "Het alarm", "Hoe gaat het alarm af en hoe klinkt het? Wie zet het aan?", 2],
+    ["aed", "AED", "Waar hangt de AED, of de AED's? Ook de dichtstbijzijnde buiten het gebouw.", 2],
+    ["ehbo", "EHBO-koffer", "Waar staan de EHBO-koffers?", 2],
+    ["blusmiddelen", "Blusmiddelen", "Waar hangen brandblussers, haspels en blusdekens?", 2],
+    ["ontruimingsplan", "Ontruimingsplan", "Waar hangt het plan? Wie neemt de aanwezigheidslijst mee?", 2],
+    ["extra", "Goed om te weten", "Bijvoorbeeld gevaarlijke stoffen, een hoofdkraan of de meterkast.", 3]
+  ];
+
+  function planLeeg(p) {
+    if (!p) return true;
+    var iets = PLAN_VELDEN.some(function (v) { return p[v[0]] && String(p[v[0]]).trim(); });
+    return !iets && !(p.contacten && p.contacten.length);
+  }
+
+  function telLink(nr) {
+    var schoon = String(nr || "").replace(/[^\d+]/g, "");
+    return schoon ? '<a href="tel:' + esc(schoon) + '">' + esc(nr) + "</a>" : esc(nr || "");
+  }
+
+  function planHtml(p) {
+    if (planLeeg(p)) {
+      return '<div class="let"><b>Nog niet ingevuld</b>Je bedrijf heeft het BHV-plan nog niet ingevuld. ' +
+        "Vraag het aan je contactpersoon of ploegleider.</div>";
+    }
+    var uit = '<div class="plan">';
+    if (p.contacten && p.contacten.length) {
+      uit += '<div class="plan-blok"><h3>Wie bel je</h3><ul class="plan-mensen">' +
+        p.contacten.map(function (c) {
+          return "<li><span><b>" + esc(c.naam || "") + "</b>" + (c.rol ? "<small>" + esc(c.rol) + "</small>" : "") + "</span>" +
+            (c.tel ? telLink(c.tel) : "") + "</li>";
+        }).join("") + "</ul></div>";
+    }
+    PLAN_VELDEN.forEach(function (v) {
+      var t = p[v[0]];
+      if (!t || !String(t).trim()) return;
+      uit += '<div class="plan-blok"><h3>' + esc(v[1]) + "</h3><p>" + esc(t).replace(/\n/g, "<br>") + "</p></div>";
+    });
+    if (p.bijgewerkt_op) {
+      uit += '<p class="klein plan-datum">Bijgewerkt op ' +
+        esc(new Date(p.bijgewerkt_op).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })) + "</p>";
+    }
+    return uit + "</div>";
+  }
+
+  /* Het plan van je eigen bedrijf ophalen en aan de app doorgeven. */
+  function laadPlan() {
+    if (!S.profiel || !S.profiel.organisatie_id) return Promise.resolve(null);
+    return Promise.resolve(sb.from("bhv_plan").select("*").eq("organisatie_id", S.profiel.organisatie_id).maybeSingle())
+      .then(function (r) {
+        S.plan = (r && !r.error && r.data) ? r.data : null;
+        meldApp({
+          type: "bhvplan",
+          bedrijf: S.profiel.organisaties ? S.profiel.organisaties.naam : "",
+          plan: S.plan
+        });
+        tekenPlanKaart();
+        return S.plan;
+      }, function () { return null; });
+  }
+
+  /* Kaartje boven de modules op het overzicht. */
+  function tekenPlanKaart() {
+    var doel = $("#dash-plan");
+    if (!doel) return;
+    var p = S.plan;
+    if (planLeeg(p)) { doel.innerHTML = ""; return; }
+    var regel = p.verzamelplaats ? "Verzamelplaats: " + p.verzamelplaats
+      : p.aed ? "AED: " + p.aed : "Adres, verzamelplaats en wie je belt.";
+    doel.innerHTML = '<button type="button" class="plan-kaart" id="plan-open">' +
+      '<span class="plan-kaart-ic" aria-hidden="true">+</span>' +
+      "<span><b>Ons BHV-plan</b><small>" + esc(regel) + "</small></span>" +
+      '<span class="plan-kaart-pijl" aria-hidden="true">&rsaquo;</span></button>';
+    $("#plan-open").addEventListener("click", naarPlan);
+  }
+
+  function naarPlan() {
+    if (!magWeg()) return;
+    if (window.BHVStan) window.BHVStan.verberg();
+    toon("view-plan");
+    $("#nav-overzicht").hidden = S.profiel.rol === "contactpersoon";
+    var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "";
+    $("#plan-paneel").innerHTML = '<div class="kop"><h1>Ons <em>BHV-plan</em></h1>' +
+      "<p>" + (org ? esc(org) + ". " : "") + "De afspraken voor een noodgeval op jouw werkplek.</p></div>" +
+      planHtml(S.plan) +
+      '<div class="let plan-112"><b>Bij levensgevaar: bel 112</b>Zeg wat er is gebeurd, waar het is en hoeveel slachtoffers er zijn. ' +
+      "Hang niet op voordat de meldkamer dat zegt.</div>";
+  }
+
+  /* ---------- invullen, voor de contactpersoon en de beheerder ---------- */
+  function tekenPlanBeheer() {
+    var isBeheer = S.profiel.rol === "beheerder";
+    var orgs = B.organisaties || [];
+    var gekozen = B.planOrg || (isBeheer ? (orgs[0] && orgs[0].id) : S.profiel.organisatie_id);
+    B.planOrg = gekozen;
+
+    var uit = '<div class="kop"><h1>Ons <em>BHV-plan</em></h1>' +
+      "<p>Vul hier de afspraken voor een noodgeval in. Iedereen van het bedrijf ziet dit in de leeromgeving, " +
+      "en in de app staat het bij de noodknop. Daar werkt het ook zonder internet.</p></div>";
+    if (isBeheer) {
+      uit += '<div class="veld"><label for="p-org">Bedrijf</label><select class="kies" id="p-org">' +
+        orgs.map(function (o) {
+          return '<option value="' + o.id + '"' + (o.id === gekozen ? " selected" : "") + ">" + esc(o.naam) + "</option>";
+        }).join("") + "</select></div>";
+    }
+    uit += '<div id="p-form"><div class="laden"><span class="tol"></span>Bezig met ophalen</div></div>';
+    $("#beheer-paneel").innerHTML = uit;
+    if (isBeheer) $("#p-org").addEventListener("change", function () { B.planOrg = this.value; tekenPlanBeheer(); });
+
+    return Promise.resolve(sb.from("bhv_plan").select("*").eq("organisatie_id", gekozen).maybeSingle()).then(function (r) {
+      if (r.error) throw r.error;
+      vulPlanForm(r.data || { contacten: [] }, gekozen);
+    });
+  }
+
+  function contactRij(c) {
+    c = c || {};
+    return '<div class="p-contact">' +
+      '<input class="kies" data-c="rol" placeholder="Rol, bijv. Ploegleider" value="' + esc(c.rol || "") + '">' +
+      '<input class="kies" data-c="naam" placeholder="Naam" value="' + esc(c.naam || "") + '">' +
+      '<input class="kies" data-c="tel" type="tel" placeholder="06 12345678" value="' + esc(c.tel || "") + '">' +
+      '<button type="button" class="btn btn-g p-weg" aria-label="Contact verwijderen">&times;</button></div>';
+  }
+
+  function vulPlanForm(p, org) {
+    var uit = '<div class="blok"><div class="blok-kop"><h3>Wie bel je</h3></div>' +
+      '<p class="lead">Ploegleider, BHV\'ers, de bedrijfsleider of de beveiliging. Met telefoonnummer, dan kun je ze in de app direct bellen.</p>' +
+      '<div id="p-contacten">' + ((p.contacten && p.contacten.length ? p.contacten : [{ rol: "Ploegleider BHV" }]).map(contactRij).join("")) + "</div>" +
+      '<button type="button" class="btn btn-g" id="p-erbij">Persoon toevoegen</button></div>';
+    uit += '<div class="blok">';
+    PLAN_VELDEN.forEach(function (v) {
+      uit += '<div class="veld"><label for="p-' + v[0] + '">' + esc(v[1]) + "</label>" +
+        '<textarea class="kies p-tekst" id="p-' + v[0] + '" rows="' + v[3] + '" placeholder="' + esc(v[2]) + '">' +
+        esc(p[v[0]] || "") + "</textarea></div>";
+    });
+    uit += '<div class="fout" id="p-fout" hidden></div>' +
+      '<div class="btn-row"><button type="button" class="btn btn-a" id="p-bewaar">Opslaan</button>' +
+      '<span class="lead" id="p-stand">' + (p.bijgewerkt_op ? "Laatst bijgewerkt " +
+        esc(new Date(p.bijgewerkt_op).toLocaleDateString("nl-NL")) : "") + "</span></div></div>";
+    $("#p-form").innerHTML = uit;
+
+    $("#p-erbij").addEventListener("click", function () {
+      var rijen = $("#p-contacten").querySelectorAll(".p-contact").length;
+      if (rijen >= 30) return;
+      $("#p-contacten").insertAdjacentHTML("beforeend", contactRij());
+    });
+    $("#p-contacten").addEventListener("click", function (e) {
+      var w = e.target.closest(".p-weg");
+      if (w) w.closest(".p-contact").remove();
+    });
+    $("#p-bewaar").addEventListener("click", function () {
+      var knop = this, fout = $("#p-fout");
+      fout.hidden = true;
+      var plan = { contacten: [] };
+      PLAN_VELDEN.forEach(function (v) { plan[v[0]] = $("#p-" + v[0]).value; });
+      $("#p-contacten").querySelectorAll(".p-contact").forEach(function (r) {
+        var c = {};
+        r.querySelectorAll("[data-c]").forEach(function (i) { c[i.dataset.c] = i.value.trim().slice(0, 120); });
+        if (c.naam || c.tel) plan.contacten.push(c);
+      });
+      knop.disabled = true; knop.textContent = "Bezig met opslaan";
+      sb.rpc("zet_bhv_plan", { p_plan: plan, p_org: S.profiel.rol === "beheerder" ? org : null }).then(function (r) {
+        knop.disabled = false; knop.textContent = "Opslaan";
+        if (r.error) {
+          fout.hidden = false;
+          fout.innerHTML = "<b>Opslaan mislukt</b>" + esc(r.error.message);
+          return;
+        }
+        $("#p-stand").textContent = "Opgeslagen";
+        toast("BHV-plan opgeslagen");
+        if (org === S.profiel.organisatie_id) laadPlan();
+      });
+    });
+  }
+
 })();

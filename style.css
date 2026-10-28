@@ -671,3 +671,27 @@ td .bar{width:92px}
 .lp-slotje.dicht{color:var(--p,#0F1F3D)}
 .lp-slotje:hover{background:rgba(0,0,0,.05)}
 @media (max-width:620px){.lp-tabel th,.lp-tabel td{padding:9px 8px}.lp-tabel .lp-slot{width:60px}.lp-tabel .lp-tijd{width:80px}}
+
+/* ---------- Ons BHV-plan ---------- */
+.plan-kaart{display:flex;align-items:center;gap:14px;width:100%;text-align:left;margin:0 0 22px;padding:14px 16px;
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--err);border-radius:var(--radc);box-shadow:var(--sh-1);color:var(--ink);cursor:pointer}
+.plan-kaart:hover{border-color:var(--line-2);border-left-color:var(--err)}
+.plan-kaart b{display:block;font-size:15px}
+.plan-kaart small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+.plan-kaart-ic{flex:0 0 34px;height:34px;border-radius:50%;background:var(--err);color:#fff;font-weight:700;font-size:22px;line-height:34px;text-align:center}
+.plan-kaart-pijl{margin-left:auto;font-size:26px;color:var(--muted)}
+.plan{display:grid;gap:12px;margin-bottom:18px}
+.plan-blok{background:var(--surface);border:1px solid var(--line);border-radius:var(--radc);padding:14px 16px}
+.plan-blok h3{margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--err)}
+.plan-blok p{margin:0;font-size:15px;line-height:1.5}
+.plan-mensen{list-style:none;margin:0;padding:0}
+.plan-mensen li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.plan-mensen li:first-child{border-top:0;padding-top:0}
+.plan-mensen small{display:block;color:var(--muted);font-size:12.5px}
+.plan-mensen a{font-weight:700;white-space:nowrap}
+.plan-datum{color:var(--muted)}
+.plan-112{border-left-color:var(--err);background:var(--err-soft);color:#5A1A13}
+.p-contact{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-bottom:8px}
+.p-contact .p-weg{padding:0 12px}
+.p-contact{padding-bottom:8px;border-bottom:1px solid var(--line)}
+@media (max-width:640px){.p-contact{grid-template-columns:1fr 1fr}.p-contact [data-c="rol"]{grid-column:1/-1}.p-contact .p-weg{grid-column:1/-1;justify-self:end;min-height:34px}}
