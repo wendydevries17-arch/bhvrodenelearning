@@ -302,7 +302,7 @@
         (naam ? esc(naam) + "<br>" : "") + esc(p.email || "") + "</p>" +
         '<div class="btn-row"><button type="button" class="btn btn-a" data-k="uit">Uitloggen</button>' +
         '<button type="button" class="btn btn-g" data-k="dicht">Sluiten</button></div>' +
-        (p.id && p.rol !== "beheerder"
+        (S.gebruiker && p.rol !== "beheerder"
           ? '<p class="klein" style="margin:18px 0 0"><a href="#" data-k="weg" style="color:var(--err)">Account verwijderen</a></p>'
           : "") +
         "</div>";
