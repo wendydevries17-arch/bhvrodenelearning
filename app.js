@@ -638,28 +638,52 @@
           $("#nav-beheer").hidden = (S.profiel.rol !== "beheerder" && S.profiel.rol !== "contactpersoon");
           if (S.profiel.rol === "beheerder") dagelijkseRonde();
 
-          /* Een contactpersoon volgt zelf geen cursus, die gaat direct naar het beheer. */
-          if (S.profiel.rol === "contactpersoon") { naarBeheer("deelnemers"); return null; }
-
-          if (!S.profiel.voornaam || !S.profiel.achternaam || !S.profiel.geboortedatum) {
-            $("#pf-voor").value = S.profiel.voornaam || "";
-            $("#pf-achter").value = S.profiel.achternaam || "";
-            $("#pf-gb").max = new Date().toISOString().slice(0, 10);
-            toon("view-profiel");
-            return null;
-          }
-          return laadCursus();
+          // Eerst moet het bedrijf akkoord geven op de verwerkersovereenkomst.
+          return Promise.resolve(sb.rpc("akkoord_voor_mijn_bedrijf")).then(function (ak) {
+            if (ak && !ak.error && ak.data === false) { S.akkoordNodig = true; $("#nav-beheer").hidden = true; wachtOpAkkoord(); return null; }
+            return naHetAkkoord();
+          });
         });
-    }).catch(function (e) {
-      if (e && e.message === "geen-profiel") {
-        storing("Geen profiel gevonden",
-          "Je kunt wel inloggen, maar je account is nog niet aan een cursus gekoppeld. " +
-          'Laat het even weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>, dan zetten we het goed.');
-      } else {
-        storing("Er ging iets mis bij het ophalen",
-          "Melding van de database: " + esc(e && e.message ? e.message : e));
-      }
-    });
+    }).catch(function (e) { laadFout(e); });
+  }
+
+  function wachtOpAkkoord() {
+    var org = S.profiel.organisaties ? S.profiel.organisaties.naam : "je werkgever";
+    if (S.profiel.rol === "contactpersoon") {
+      storing("Eerst uw akkoord",
+        "Voordat de medewerkers van " + esc(org) + " kunnen beginnen, vragen we u één keer akkoord te geven op de verwerkersovereenkomst. " +
+        "Daarin staat hoe wij de gegevens van uw medewerkers beschermen. Het kost u twee minuten." +
+        '<div class="btn-row" style="margin-top:14px"><a class="btn btn-a" href="verwerkersovereenkomst.html" style="text-decoration:none">Overeenkomst lezen en akkoord geven</a></div>');
+      return;
+    }
+    storing("Nog even geduld",
+      "Je account staat klaar. Voordat je kunt beginnen, moet " + esc(org) + " nog één keer akkoord geven op de afspraken over je privacy. " +
+      "Dat hebben we gevraagd. Zodra het rond is, kun je hier direct beginnen. Duurt het lang? Vraag het even na bij je leidinggevende.");
+  }
+
+  function naHetAkkoord() {
+    /* Een contactpersoon volgt zelf geen cursus, die gaat direct naar het beheer. */
+    if (S.profiel.rol === "contactpersoon") { naarBeheer("deelnemers"); return null; }
+
+    if (!S.profiel.voornaam || !S.profiel.achternaam || !S.profiel.geboortedatum) {
+      $("#pf-voor").value = S.profiel.voornaam || "";
+      $("#pf-achter").value = S.profiel.achternaam || "";
+      $("#pf-gb").max = new Date().toISOString().slice(0, 10);
+      toon("view-profiel");
+      return null;
+    }
+    return laadCursus();
+  }
+
+  function laadFout(e) {
+    if (e && e.message === "geen-profiel") {
+      storing("Geen profiel gevonden",
+        "Je kunt wel inloggen, maar je account is nog niet aan een cursus gekoppeld. " +
+        'Laat het even weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>, dan zetten we het goed.');
+    } else {
+      storing("Er ging iets mis bij het ophalen",
+        "Melding van de database: " + esc(e && e.message ? e.message : e));
+    }
   }
 
   $("#profiel-form").addEventListener("submit", function (e) {
@@ -1844,6 +1868,7 @@
   var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1, lessenplan: 1 };
 
   function naarBeheer(tab) {
+    if (S.akkoordNodig) { wachtOpAkkoord(); return; }
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
     B.tab = tab;
     if (window.BHVStan) window.BHVStan.verberg();
@@ -2326,6 +2351,7 @@
   }
 
   function tekenBedrijven() {
+    if (!B.vwo) return laadVwo().then(tekenBedrijven);
     var uit = '<div class="kop"><h1>Klant<em>bedrijven</em></h1>' +
       "<p>Elk bedrijf krijgt een eigen omgeving in zijn eigen huisstijl. De cursus blijft dezelfde, het certificaat blijft van BHV Roden.</p></div>";
 
@@ -2362,7 +2388,7 @@
                ? '<span class="chip af">' + esc(datumNL(o.dpa_getekend_op)) + "</span>" +
                  (o.dpa_opmerking ? '<div class="klein" style="color:var(--muted)">' + esc(o.dpa_opmerking) + "</div>" : "") +
                  '<div><button type="button" class="tekstknop" data-dpa="' + esc(o.id) + '" style="font-size:12px">wijzigen</button></div>'
-               : '<button type="button" class="btn btn-g btn-sm" data-dpa="' + esc(o.id) + '">Vastleggen</button>')) + "</td>" +
+               : vwoStatus(o))) + "</td>" +
           '<td><span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:' + esc(o.kleur_primair) + ';vertical-align:middle"></span>' +
           '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td>' +
           "<td>" + (o.contactpersoon_email
@@ -2384,8 +2410,54 @@
     $("#beheer-paneel").querySelectorAll("[data-dpa]").forEach(function (b) {
       b.addEventListener("click", function () { tekenDpa(b.dataset.dpa); });
     });
+    $("#beheer-paneel").querySelectorAll("[data-vwo]").forEach(function (b) {
+      b.addEventListener("click", function () { stuurVerwerkers(b.dataset.vwo, b); });
+    });
     tekenVoorbeeld();
     return Promise.resolve();
+  }
+
+  /* ---------- verwerkersovereenkomst online ---------- */
+  function vwoStatus(o) {
+    var v = (B.vwo || {})[o.id];
+    var uit = "";
+    if (v && v.verstuurd_op) {
+      uit += '<span class="chip let">wacht op akkoord</span>' +
+        '<div class="klein" style="color:var(--muted)">gemaild ' + esc(datumNL(v.verstuurd_op)) +
+        (v.herinneringen ? ", " + v.herinneringen + (v.herinneringen === 1 ? " herinnering" : " herinneringen") : "") + "</div>";
+    } else {
+      uit += '<span class="chip let">nog niet verstuurd</span>';
+    }
+    uit += '<div style="margin-top:6px">' + (o.contactpersoon_email
+      ? '<button type="button" class="btn btn-g btn-sm" data-vwo="' + esc(o.id) + '">' + (v && v.verstuurd_op ? "Opnieuw mailen" : "Mailen") + "</button> "
+      : '<span class="hint">eerst een e-mailadres invullen</span> ') +
+      '<button type="button" class="tekstknop" data-dpa="' + esc(o.id) + '" style="font-size:12px">op papier getekend</button></div>';
+    return uit;
+  }
+
+  function laadVwo() {
+    return Promise.resolve(sb.from("verwerkersovereenkomst").select("organisatie_id, verstuurd_op, herinneringen, akkoord_op"))
+      .then(function (r) {
+        B.vwo = {};
+        ((r && r.data) || []).forEach(function (x) { B.vwo[x.organisatie_id] = x; });
+      }, function () { B.vwo = {}; });
+  }
+
+  function stuurVerwerkers(orgId, knop) {
+    var was = knop ? knop.textContent : "";
+    if (knop) { knop.disabled = true; knop.textContent = "Bezig"; }
+    return sb.functions.invoke("verwerkers", { body: { actie: "versturen", org: orgId } }).then(function (q) {
+      var d = q.data || {};
+      if (q.error || d.fout) {
+        if (knop) { knop.disabled = false; knop.textContent = was; }
+        toast(d.fout || "Versturen lukte niet. Probeer het zo nog een keer.");
+        return false;
+      }
+      toast("Verwerkersovereenkomst gemaild naar " + d.aan);
+      B.vwo = null;
+      naarBeheer("bedrijven");
+      return true;
+    });
   }
 
   function koppelKleur(kleurId, tekstId) {
@@ -2437,9 +2509,18 @@
         fout.innerHTML = "<b>Aanmaken mislukt</b>" + esc(r.error.message);
         return;
       }
-      B.organisaties = null; B.deelnemers = null;
-      toast(naam + " staat erin");
-      naarBeheer("bedrijven");
+      B.organisaties = null; B.deelnemers = null; B.vwo = null;
+      var mail = $("#b-mail").value.trim();
+      if (!mail) { toast(naam + " staat erin. Vul nog een contactpersoon in voor de verwerkersovereenkomst."); naarBeheer("bedrijven"); return; }
+      // Het nieuwe bedrijf opzoeken en de verwerkersovereenkomst meteen mailen.
+      sb.from("organisaties").select("id").eq("naam", naam).order("aangemaakt_op", { ascending: false }).limit(1).then(function (z) {
+        var id = (typeof r.data === "string" && /^[0-9a-f-]{36}$/i.test(r.data)) ? r.data : (z.data && z.data[0] && z.data[0].id);
+        if (!id) { toast(naam + " staat erin"); naarBeheer("bedrijven"); return; }
+        stuurVerwerkers(id, null).then(function (gelukt) {
+          if (!gelukt) naarBeheer("bedrijven");
+          else toast(naam + " staat erin en de verwerkersovereenkomst is gemaild");
+        });
+      });
     });
   }
 
