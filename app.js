@@ -1865,11 +1865,12 @@
      ===================================================================== */
   var B = { tab: "overzicht", organisaties: null, cursussen: null, deelnemers: null, laatsteLinks: null };
 
-  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1, lessenplan: 1 };
+  var ALLEEN_BEHEER = { uitnodigen: 1, bedrijven: 1, controle: 1, mail: 1, videos: 1, presentatie: 1, stan: 1, inhoud: 1, lessenplan: 1, praktijk: 1 };
 
   function naarBeheer(tab) {
     if (S.akkoordNodig) { wachtOpAkkoord(); return; }
     if (ALLEEN_BEHEER[tab] && S.profiel.rol !== "beheerder") tab = "deelnemers";
+    if (tab === "praktijk") { location.href = "praktijkcertificaten.html"; return; }
     B.tab = tab;
     if (window.BHVStan) window.BHVStan.verberg();
     toon("view-beheer");
@@ -3046,7 +3047,8 @@
         var vandaag = new Date().toISOString().slice(0, 10);
 
         var uit = '<div class="kop"><h1>Certi<em>ficaten</em></h1>' +
-          "<p>Elk certificaat krijgt een oplopend nummer en is een jaar geldig. Ze worden automatisch aangemaakt zodra iemand het examen haalt.</p></div>";
+          "<p>Elk certificaat krijgt een oplopend nummer en is een jaar geldig. Ze worden automatisch aangemaakt zodra iemand het examen haalt.</p>" +
+          (S.profiel.rol === "beheerder" ? '<p class="btn-row"><a class="btn btn-a" href="praktijkcertificaten.html">Certificaten voor een praktijkles maken</a></p>' : "") + "</div>";
 
         if (!c.length) {
           uit += '<div class="tabel-scroll"><div class="leeg">Nog geen certificaten. Ze verschijnen hier zodra de eerste deelnemer slaagt.</div></div>';

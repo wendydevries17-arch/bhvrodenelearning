@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Praktijkcertificaten, BHV Roden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>
+@font-face{font-family:CertSerif;font-weight:400;src:url(cert/fonts/source-serif-4-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:CertSans;font-weight:400;src:url(cert/fonts/source-sans-3-latin-400-normal.woff2) format("woff2")}
+@font-face{font-family:CertSans;font-weight:700;src:url(cert/fonts/source-sans-3-latin-700-normal.woff2) format("woff2")}
+.pc-soorten{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.pc-soort{display:flex;gap:10px;align-items:flex-start;padding:14px 16px;border:1.5px solid var(--line-2);border-radius:8px;background:var(--surface);cursor:pointer}
+.pc-soort input{margin-top:3px;width:auto}
+.pc-soort b{display:block;font-size:15px}
+.pc-soort span{font-size:12.5px;color:var(--muted)}
+.pc-soort:has(input:checked){border-color:var(--a);box-shadow:0 0 0 1px var(--a) inset}
+#pc-lijst{width:100%;min-height:220px;padding:12px 14px;border:1px solid var(--line-2);border-radius:6px;font:inherit;font-family:var(--fb);line-height:1.6;resize:vertical}
+#pc-lijst:focus{outline:2px solid var(--a);outline-offset:-1px}
+.pc-stap{margin-top:26px}
+.pc-stap h3{margin:0 0 10px}
+.pc-tabel td.fout-cel{color:#B71C1C;font-weight:600}
+.pc-raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:16px}
+.pc-raster figure{margin:0}
+.pc-raster img{width:100%;display:block;border:1px solid var(--line-2);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:zoom-in}
+.pc-raster figcaption{font-size:12px;color:var(--muted);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-groot{position:fixed;inset:0;background:rgba(10,20,40,.82);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;cursor:zoom-out}
+.pc-groot img{max-width:100%;max-height:100%;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+.pc-mail{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.pc-mail .veld{flex:1 1 260px}
+#pc-status{margin-top:14px}
+</style>
+</head>
+<body>
+
+<header class="balk">
+  <img src="img/logo-bhvroden.jpg" alt="BHV Roden">
+  <span class="naam">BHV Roden<span>Leeromgeving</span></span>
+</header>
+
+<div class="wrap wrap-smal">
+  <div class="kop">
+    <h1>Praktijk<em>certificaten</em></h1>
+    <p>Maak in één keer de certificaten voor een praktijkles. Download ze als PDF of als losse afbeeldingen, of mail ze direct.</p>
+  </div>
+
+  <div id="pc-slot" class="let" hidden></div>
+
+  <div id="pc-werk" hidden>
+    <div class="pc-stap">
+      <h3>1. Welke cursus?</h3>
+      <div class="pc-soorten">
+        <label class="pc-soort"><input type="radio" name="soort" value="reanimatie"><div><b>Reanimatie</b><span>NRR, 1 jaar geldig</span></div></label>
+        <label class="pc-soort"><input type="radio" name="soort" value="herhaling" checked><div><b>Herhaling BHV</b><span>NIBHV, 1 jaar geldig</span></div></label>
+        <label class="pc-soort"><input type="radio" name="soort" value="basis"><div><b>Basis BHV</b><span>NIBHV, 1 jaar geldig</span></div></label>
+      </div>
+    </div>
+
+    <div class="pc-stap">
+      <h3>2. Datum van de cursus</h3>
+      <div class="veld" style="max-width:260px"><input class="kies" id="pc-datum" type="date"></div>
+    </div>
+
+    <div class="pc-stap">
+      <h3>3. Namen en geboortedata</h3>
+      <div class="veld">
+        <textarea id="pc-lijst" spellcheck="false" placeholder="Plak hier de lijst, één persoon per regel. Bijvoorbeeld:&#10;Samanta Mejute 18-02-1998&#10;Chloë Glas, 12/08/1969&#10;Jan de Vries	5 juni 1985"></textarea>
+        <span class="hint">Eén persoon per regel. Komma's, tabs uit Excel en datums als 18-02-1998, 18/2/98 of 18 februari 1998 werken allemaal.</span>
+      </div>
+    </div>
+
+    <div class="pc-stap" id="pc-controle" hidden>
+      <h3>4. Controleren</h3>
+      <div class="tabel-scroll"><table class="pc-tabel"><thead><tr><th>#</th><th>Naam op certificaat</th><th>Geboren</th></tr></thead><tbody id="pc-rijen"></tbody></table></div>
+      <div class="pc-raster" id="pc-raster"></div>
+    </div>
+
+    <div class="pc-stap" id="pc-acties" hidden>
+      <h3>5. Downloaden of mailen</h3>
+      <div class="btn-row">
+        <button type="button" class="btn btn-a" id="pc-pdf">PDF downloaden (alles op A4)</button>
+        <button type="button" class="btn btn-g" id="pc-zip">ZIP met afbeeldingen</button>
+      </div>
+      <div class="pc-stap" style="margin-top:20px">
+        <div class="pc-mail">
+          <div class="veld"><label for="pc-email">Mailen naar</label><input class="kies" id="pc-email" type="email" placeholder="naam@bedrijf.nl" autocomplete="email"></div>
+          <button type="button" class="btn btn-p" id="pc-mailknop">Certificaten mailen</button>
+        </div>
+        <div class="veld" style="margin-top:10px"><label for="pc-bericht">Persoonlijk bericht (mag leeg blijven)</label><input class="kies" id="pc-bericht" type="text" placeholder="Bijvoorbeeld: Bedankt voor de fijne training!"></div>
+        <p class="hint" style="font-size:12px;color:var(--muted);margin-top:8px">De PDF gaat als bijlage mee. Je krijgt zelf een kopie op info@bhvroden.nl.</p>
+      </div>
+      <div id="pc-status" hidden></div>
+    </div>
+
+    <p style="margin-top:34px;font-size:12.5px;color:var(--muted)">De certificaten worden in je eigen browser gemaakt. Namen en geboortedata worden niet opgeslagen. <a href="index.html">Terug naar de leeromgeving</a></p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="cert/cert.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var cfg = window.CONFIG || {};
+  var FUNCTIE = (cfg.supabaseUrl || "https://lckiqubbdcgsalkovscg.supabase.co") + "/functions/v1/certificaten";
+  var sb = null, sessie = null, bg = null, mensen = [], plaatjes = [], bezig = 0;
+  var MAANDEN = { jan: 1, januari: 1, feb: 2, februari: 2, mrt: 3, maart: 3, mar: 3, apr: 4, april: 4, mei: 5, jun: 6, juni: 6,
+    jul: 7, juli: 7, aug: 8, augustus: 8, sep: 9, sept: 9, september: 9, okt: 10, oktober: 10, oct: 10, nov: 11, november: 11, dec: 12, december: 12 };
+
+  function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  function twee(n) { return (n < 10 ? "0" : "") + n; }
+  function slot(html) { $("#pc-slot").innerHTML = html; $("#pc-slot").hidden = false; $("#pc-werk").hidden = true; }
+  function status(html, soort) { var s = $("#pc-status"); s.className = soort || "goed"; s.innerHTML = html; s.hidden = false; }
+
+  /* ---------- lijst lezen ---------- */
+  function maakDatum(d, m, j) {
+    d = +d; m = +m; j = +j;
+    if (j < 100) j += (j > new Date().getFullYear() % 100 ? 1900 : 2000);
+    var t = new Date(j, m - 1, d);
+    if (t.getFullYear() !== j || t.getMonth() !== m - 1 || t.getDate() !== d) return null;
+    if (j < 1900 || t > new Date()) return null;
+    return twee(d) + "-" + twee(m) + "-" + j;
+  }
+  function zoekDatum(r) {
+    var m, re;
+    re = /(\d{4})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})/;
+    if ((m = r.match(re))) return { tekst: m[0], datum: maakDatum(m[3], m[2], m[1]) };
+    re = /(\d{1,2})\s*[-\/.]\s*(\d{1,2})\s*[-\/.]\s*(\d{2,4})/;
+    if ((m = r.match(re))) return { tekst: m[0], datum: maakDatum(m[1], m[2], m[3]) };
+    re = /(\d{1,2})\s+([a-zA-Z]+)\.?\s+(\d{2,4})/;
+    if ((m = r.match(re)) && MAANDEN[m[2].toLowerCase()]) return { tekst: m[0], datum: maakDatum(m[1], MAANDEN[m[2].toLowerCase()], m[3]) };
+    return null;
+  }
+  function schoonNaam(s) {
+    return s.replace(/\b(geboren|geb|geboortedatum|op|d\.d\.)\b\.?:?/gi, " ")
+      .replace(/[\t,;:|()\[\]]+/g, " ").replace(/\s+-\s*$|^\s*-\s+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function leesLijst(tekst) {
+    var regels = tekst.split(/\r?\n/).map(function (r) { return r.trim(); }).filter(Boolean), uit = [];
+    for (var i = 0; i < regels.length; i++) {
+      var r = regels[i], d = zoekDatum(r);
+      if (!d && regels[i + 1]) {
+        var v = zoekDatum(regels[i + 1]);
+        if (v && !schoonNaam(regels[i + 1].replace(v.tekst, ""))) { d = v; i++; }
+      }
+      var naam = schoonNaam(d ? r.replace(d.tekst, " ") : r);
+      if (!naam && !d) continue;
+      if (/^(naam|namen|voornaam)\b/i.test(naam) && !d) continue;
+      uit.push({ naam: naam, geboren: d && d.datum, fout: !naam ? "naam ontbreekt" : !d ? "geen geboortedatum gevonden" : !d.datum ? "datum klopt niet" : "" });
+    }
+    return uit;
+  }
+
+  /* ---------- tekenen ---------- */
+  function soort() { return (document.querySelector('input[name=soort]:checked') || {}).value || "herhaling"; }
+  function cursusDatum() { var v = $("#pc-datum").value; if (!v) return ""; var p = v.split("-"); return p[2] + "-" + p[1] + "-" + p[0]; }
+  var canvas = document.createElement("canvas"); canvas.width = 1414; canvas.height = 2000;
+  function teken(p, kwaliteit) {
+    BHVCert.teken(canvas.getContext("2d"), bg, { naam: p.naam, geboren: p.geboren, datum: cursusDatum(), soort: soort() });
+    return canvas.toDataURL("image/jpeg", kwaliteit || 0.9);
+  }
+  function bijwerken() {
+    var nr = ++bezig;
+    mensen = leesLijst($("#pc-lijst").value);
+    var goed = mensen.filter(function (p) { return !p.fout; });
+    $("#pc-controle").hidden = !mensen.length;
+    $("#pc-acties").hidden = !goed.length;
+    $("#pc-rijen").innerHTML = mensen.map(function (p, i) {
+      return "<tr><td class=\"num\">" + (i + 1) + "</td><td>" + (p.naam ? esc(p.naam.toUpperCase()) : "") + "</td>" +
+        (p.fout ? '<td class="fout-cel">' + esc(p.fout) + "</td>" : '<td class="num">' + esc(p.geboren) + "</td>") + "</tr>";
+    }).join("");
+    var fouten = mensen.length - goed.length;
+    $("#pc-pdf").textContent = "PDF downloaden (" + goed.length + (goed.length === 1 ? " certificaat" : " certificaten") + ")";
+    if (fouten) status("<b>Let op</b>" + fouten + (fouten === 1 ? " regel wordt" : " regels worden") + " overgeslagen. Pas de lijst aan als dat niet de bedoeling is.", "let");
+    else $("#pc-status").hidden = true;
+    if (!cursusDatum()) { $("#pc-raster").innerHTML = '<p class="hint">Vul de datum van de cursus in om de certificaten te zien.</p>'; plaatjes = []; return; }
+    // klein voorbeeld, zonder het scherm te laten haperen
+    plaatjes = []; $("#pc-raster").innerHTML = "";
+    (function stap(i) {
+      if (nr !== bezig || i >= goed.length) return;
+      var url = teken(goed[i]);
+      plaatjes.push({ p: goed[i], url: url });
+      var f = document.createElement("figure");
+      f.innerHTML = '<img alt="" src="' + url + '"><figcaption>' + esc(goed[i].naam) + "</figcaption>";
+      $("#pc-raster").appendChild(f);
+      setTimeout(function () { stap(i + 1); }, 0);
+    })(0);
+  }
+  function klaar() {
+    var goed = mensen.filter(function (p) { return !p.fout; });
+    if (!cursusDatum()) { status("<b>Bijna</b>Vul eerst de datum van de cursus in.", "let"); return null; }
+    if (!goed.length) { status("<b>Bijna</b>Plak eerst de namen en geboortedata.", "let"); return null; }
+    return goed;
+  }
+  var NAMEN = { reanimatie: "Reanimatie", herhaling: "BHV_Herhaling", basis: "BHV_Basis" };
+  function bestand(naam) { return naam.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "_").replace(/^_|_$/g, ""); }
+  function maakPdf(goed, kwaliteit) {
+    var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4", compress: true });
+    goed.forEach(function (p, i) { if (i) doc.addPage(); doc.addImage(teken(p, kwaliteit), "JPEG", 0, 0, 210, 297, undefined, "FAST"); });
+    doc.setProperties({ title: "Certificaten " + NAMEN[soort()].replace("_", " ") + " " + cursusDatum(), author: "BHV Roden" });
+    return doc;
+  }
+  function pdfNaam() { return "Certificaten_" + NAMEN[soort()] + "_" + cursusDatum() + ".pdf"; }
+  function bewaar(blob, naam) {
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = naam;
+    document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function knopBezig(k, tekst) { var oud = k.textContent; k.disabled = true; k.textContent = tekst; return function () { k.disabled = false; k.textContent = oud; }; }
+
+  $("#pc-pdf").addEventListener("click", function () {
+    var goed = klaar(); if (!goed) return;
+    var terug = knopBezig(this, "Bezig met maken");
+    setTimeout(function () { try { bewaar(maakPdf(goed, 0.92).output("blob"), pdfNaam()); } finally { terug(); } }, 30);
+  });
+  $("#pc-zip").addEventListener("click", function () {
+    var goed = klaar(); if (!goed) return;
+    var terug = knopBezig(this, "Bezig met inpakken");
+    setTimeout(function () {
+      var zip = new JSZip(), map = zip.folder("Certificaten_" + NAMEN[soort()] + "_" + cursusDatum()), gebruikt = {};
+      goed.forEach(function (p) {
+        var n = "Certificaat_" + NAMEN[soort()] + "_" + bestand(p.naam);
+        gebruikt[n] = (gebruikt[n] || 0) + 1; if (gebruikt[n] > 1) n += "_" + gebruikt[n];
+        map.file(n + ".jpg", teken(p, 0.92).split(",")[1], { base64: true });
+      });
+      zip.generateAsync({ type: "blob" }).then(function (b) { bewaar(b, "Certificaten_" + NAMEN[soort()] + "_" + cursusDatum() + ".zip"); }).finally(terug);
+    }, 30);
+  });
+  $("#pc-mailknop").addEventListener("click", function () {
+    var goed = klaar(); if (!goed) return;
+    var email = $("#pc-email").value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { status("<b>Bijna</b>Vul een geldig e-mailadres in.", "let"); return; }
+    var knop = this, terug = knopBezig(knop, "Bezig met versturen");
+    setTimeout(function () {
+      var pdf = maakPdf(goed, 0.85).output("datauristring").split(",")[1];
+      sb.auth.getSession().then(function (r) {
+        var s = r.data && r.data.session;
+        return fetch(FUNCTIE, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + (s ? s.access_token : "") },
+          body: JSON.stringify({ email: email, soort: soort(), datum: cursusDatum(), aantal: goed.length, bestandsnaam: pdfNaam(), pdf: pdf, bericht: $("#pc-bericht").value }) });
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.fout) status("<b>Niet verstuurd</b>" + esc(d.fout), "let");
+        else status("<b>Verstuurd</b>" + goed.length + (goed.length === 1 ? " certificaat is" : " certificaten zijn") + " gemaild naar " + esc(email) + ".");
+      }).catch(function () { status("<b>Geen verbinding</b>Probeer het zo nog een keer.", "let"); }).finally(terug);
+    }, 30);
+  });
+
+  var wacht;
+  $("#pc-lijst").addEventListener("input", function () { clearTimeout(wacht); wacht = setTimeout(bijwerken, 400); });
+  $("#pc-datum").addEventListener("change", bijwerken);
+  document.querySelectorAll("input[name=soort]").forEach(function (r) { r.addEventListener("change", bijwerken); });
+  $("#pc-raster").addEventListener("click", function (e) {
+    if (e.target.tagName !== "IMG") return;
+    var g = document.createElement("div"); g.className = "pc-groot"; g.innerHTML = '<img alt="" src="' + e.target.src + '">';
+    g.addEventListener("click", function () { g.remove(); }); document.body.appendChild(g);
+  });
+
+  /* ---------- starten: alleen voor de beheerder ---------- */
+  function laadBronnen() {
+    bg = new Image(); bg.src = "cert/achtergrond.jpg";
+    return Promise.all([bg.decode(), document.fonts.load("100px CertSerif"), document.fonts.load("400 40px CertSans"), document.fonts.load("700 40px CertSans")]);
+  }
+  function open() {
+    $("#pc-slot").hidden = true; $("#pc-werk").hidden = false;
+    var v = new Date(); $("#pc-datum").value = v.getFullYear() + "-" + twee(v.getMonth() + 1) + "-" + twee(v.getDate());
+    laadBronnen().then(bijwerken);
+  }
+  window.BHVPraktijk = { leesLijst: leesLijst };
+  if (window.__PC_TEST) { sb = window.__PC_TEST.sb; open(); return; }
+  try {
+    sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+    sb.auth.getSession().then(function (r) {
+      sessie = r.data && r.data.session;
+      if (!sessie) { slot('<b>Eerst inloggen</b>Deze pagina is alleen voor de beheerder. <a href="index.html">Log in</a> en kom dan terug via Beheer.'); return; }
+      return sb.from("profielen").select("rol").eq("id", sessie.user.id).single().then(function (p) {
+        if (!p.data || p.data.rol !== "beheerder") { slot("<b>Geen toegang</b>Deze pagina is alleen voor de beheerder van BHV Roden."); return; }
+        open();
+      });
+    });
+  } catch (e) { slot("<b>Dat lukte niet</b>Laad de pagina opnieuw."); }
+})();
+</script>
+</body>
+</html>
