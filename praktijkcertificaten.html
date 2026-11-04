@@ -24,15 +24,24 @@
 .pc-stap{margin-top:26px}
 .pc-stap h3{margin:0 0 10px}
 .pc-tabel td.fout-cel{color:#B71C1C;font-weight:600}
-.pc-raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:16px}
-.pc-raster figure{margin:0}
-.pc-raster img{width:100%;display:block;border:1px solid var(--line-2);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:zoom-in}
+.pc-raster{display:grid;align-items:start;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:16px}
+.pc-raster figure{margin:0;min-width:0}
+.pc-raster img{width:100%;height:auto;aspect-ratio:1414/2000;display:block;border:1px solid var(--line-2);border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.08);cursor:zoom-in}
 .pc-raster figcaption{font-size:12px;color:var(--muted);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pc-groot{position:fixed;inset:0;background:rgba(10,20,40,.82);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;cursor:zoom-out}
 .pc-groot img{max-width:100%;max-height:100%;box-shadow:0 10px 40px rgba(0,0,0,.5)}
 .pc-mail{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
 .pc-mail .veld{flex:1 1 260px}
 #pc-status{margin-top:14px}
+@media (max-width:560px){
+.pc-soorten{grid-template-columns:1fr}
+.pc-soort{padding:12px 14px}
+.pc-tabel{min-width:0!important;width:100%}
+.pc-tabel th:first-child,.pc-tabel td:first-child{display:none}
+.pc-tabel th,.pc-tabel td{white-space:normal;padding-left:10px;padding-right:10px}
+.pc-raster{grid-template-columns:repeat(2,minmax(0,1fr))}
+.pc-mail .btn,#pc-acties .btn-row .btn{width:100%;justify-content:center}
+}
 </style>
 </head>
 <body>
@@ -49,6 +58,14 @@
   </div>
 
   <div id="pc-slot" class="let" hidden></div>
+
+  <form class="blok" id="pc-login" hidden style="max-width:420px">
+    <div class="blok-kop"><h3>Inloggen als beheerder</h3></div>
+    <div class="veld"><label for="pc-lmail">E-mailadres</label><input class="kies" id="pc-lmail" type="email" autocomplete="username" required></div>
+    <div class="veld" style="margin-top:10px"><label for="pc-lpw">Wachtwoord</label><input class="kies" id="pc-lpw" type="password" autocomplete="current-password" required></div>
+    <div class="fout" id="pc-lfout" hidden style="margin-top:10px"></div>
+    <div class="btn-row" style="margin-top:14px"><button type="submit" class="btn btn-a" id="pc-inlog">Inloggen</button></div>
+  </form>
 
   <div id="pc-werk" hidden>
     <div class="pc-stap">
@@ -275,14 +292,27 @@
   if (window.__PC_TEST) { sb = window.__PC_TEST.sb; open(); return; }
   try {
     sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
-    sb.auth.getSession().then(function (r) {
-      sessie = r.data && r.data.session;
-      if (!sessie) { slot('<b>Eerst inloggen</b>Deze pagina is alleen voor de beheerder. <a href="index.html">Log in</a> en kom dan terug via Beheer.'); return; }
-      return sb.from("profielen").select("rol").eq("id", sessie.user.id).single().then(function (p) {
-        if (!p.data || p.data.rol !== "beheerder") { slot("<b>Geen toegang</b>Deze pagina is alleen voor de beheerder van BHV Roden."); return; }
-        open();
+    var controleer = function () {
+      return sb.auth.getSession().then(function (r) {
+        sessie = r.data && r.data.session;
+        if (!sessie) { $("#pc-login").hidden = false; $("#pc-slot").hidden = true; return; }
+        $("#pc-login").hidden = true;
+        return sb.from("profielen").select("rol").eq("id", sessie.user.id).single().then(function (p) {
+          if (!p.data || p.data.rol !== "beheerder") { slot("<b>Geen toegang</b>Deze pagina is alleen voor de beheerder van BHV Roden."); return; }
+          open();
+        });
+      });
+    };
+    $("#pc-login").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var knop = $("#pc-inlog"), fout = $("#pc-lfout"); fout.hidden = true; knop.disabled = true;
+      sb.auth.signInWithPassword({ email: $("#pc-lmail").value.trim(), password: $("#pc-lpw").value }).then(function (r) {
+        knop.disabled = false;
+        if (r.error) { fout.hidden = false; fout.innerHTML = "<b>Inloggen lukte niet</b>Controleer je e-mailadres en wachtwoord."; return; }
+        $("#pc-lpw").value = ""; controleer();
       });
     });
+    controleer();
   } catch (e) { slot("<b>Dat lukte niet</b>Laad de pagina opnieuw."); }
 })();
 </script>
