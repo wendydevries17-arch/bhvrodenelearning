@@ -9,6 +9,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=Public+Sans:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F1F3D">
+<link rel="icon" type="image/png" sizes="192x192" href="img/app/icon-192.png">
+<link rel="apple-touch-icon" href="img/app/icon-180.png">
 </head>
 <body>
 
@@ -280,5 +284,35 @@
 <script src="dias.js"></script>
 <script src="inhoud.js"></script>
 <script src="app.js"></script>
+<style>#installeer[hidden]{display:none!important}</style>
+<div id="installeer" hidden style="position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:60;background:#0F1F3D;color:#fff;border-radius:14px;padding:12px 14px;display:flex;gap:12px;align-items:center;box-shadow:0 10px 30px rgba(0,0,0,.3);max-width:520px;margin:0 auto">
+  <img src="img/app/icon-192.png" alt="" width="44" height="44" style="border-radius:10px;flex:none">
+  <div style="flex:1;font-size:14px;line-height:1.35"><b>Zet BHV Roden op je telefoon</b><br><span style="opacity:.75">Met één tik als app op je beginscherm.</span></div>
+  <button type="button" id="installeer-ja" class="btn btn-a btn-sm">Installeren</button>
+  <button type="button" id="installeer-nee" aria-label="Sluiten" style="background:none;border:0;color:#fff;opacity:.7;font-size:22px;line-height:1;padding:4px;cursor:pointer">&times;</button>
+</div>
+<script>
+(function () {
+  "use strict";
+  var inApp = !!(window.ReactNativeWebView || window.BHV_APP);
+  if (!inApp && "serviceWorker" in navigator) {
+    window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+  }
+  var standalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+  var weg = false; try { weg = localStorage.getItem("bhv-installeer-weg") === "1"; } catch (e) {}
+  var vraag = null, balk = document.getElementById("installeer");
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault(); vraag = e;
+    if (!inApp && !standalone && !weg) balk.hidden = false;
+  });
+  document.getElementById("installeer-ja").addEventListener("click", function () {
+    if (!vraag) return; balk.hidden = true; vraag.prompt(); vraag = null;
+  });
+  document.getElementById("installeer-nee").addEventListener("click", function () {
+    balk.hidden = true; try { localStorage.setItem("bhv-installeer-weg", "1"); } catch (e) {}
+  });
+  window.addEventListener("appinstalled", function () { balk.hidden = true; });
+})();
+</script>
 </body>
 </html>
