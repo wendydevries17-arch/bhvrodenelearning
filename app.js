@@ -2716,8 +2716,8 @@
       V.lessen = (r[2].data || []).filter(function (l) { return !(Array.isArray(l.dias) && l.dias.length); });
 
       var uit = '<div class="kop"><h1>De <em>video\'s</em></h1>' +
-        "<p>De bestanden staan bij Bunny Stream. Hier koppel je per les welke video's erbij horen. " +
-        "Je hebt alleen het nummer nodig dat Bunny aan een video geeft.</p></div>";
+        "<p>De bestanden staan in onze eigen opslag. Hier koppel je per les welke video's erbij horen, " +
+        "met de link naar het mp4-bestand.</p></div>";
 
       uit += '<div class="paneel"><div class="paneel-kop"><h2>De videodienst</h2></div>' +
         '<div class="paneel-body">' +
@@ -2929,15 +2929,15 @@
       var uit = '<button type="button" class="terug" id="v-terug">' + IC.terug + "Terug naar de video's</button>" +
         '<div class="kop"><h1>' + esc(l.titel) + "</h1>" +
         "<p>Zet hier de video's die bij deze les horen, in de volgorde waarin ze op het scherm komen. " +
-        "Het nummer haal je bij Bunny uit het adres van de video, of met de knop Copy Video ID.</p></div>";
+        "Plak bij elke video de link naar het mp4-bestand in onze opslag. Een oud nummer van Bunny werkt ook nog.</p></div>";
 
       uit += '<div class="paneel"><div class="paneel-body" id="v-rijen">' +
         rijen.map(function (v, i) {
           return '<div class="veld-rij" style="margin-bottom:12px" data-rij="' + i + '">' +
             '<div class="veld"><label>Titel boven de video</label>' +
             '<input class="kies v-titel" type="text" placeholder="Verzamelplaats" value="' + esc(v.titel || "") + '"></div>' +
-            '<div class="veld"><label>Nummer van de video bij Bunny</label>' +
-            '<input class="kies v-id" type="text" placeholder="a1b2c3d4-..." value="' + esc(v.video || "") + '"></div>' +
+            '<div class="veld"><label>Link naar de video</label>' +
+            '<input class="kies v-id" type="text" placeholder="https://...mp4" value="' + esc(v.url || v.video || "") + '"></div>' +
             '<div class="veld" style="flex:0 0 auto"><label>&nbsp;</label>' +
             '<button type="button" class="btn btn-g btn-sm" data-weg="' + i + '">Weg</button></div></div>';
         }).join("") + "</div>" +
@@ -2961,11 +2961,13 @@
     }
 
     function lees() {
+      var rijen_oud = rijen;
       var t = $("#beheer-paneel").querySelectorAll(".v-titel");
       var d = $("#beheer-paneel").querySelectorAll(".v-id");
       rijen = [];
       for (var i = 0; i < d.length; i++) {
-        rijen.push({ titel: t[i].value.trim(), video: d[i].value.trim() });
+        var oud = rijen_oud[i] || {};
+        rijen.push({ titel: t[i].value.trim(), video: d[i].value.trim(), duur: (oud.url || oud.video) === d[i].value.trim() ? oud.duur : undefined });
       }
     }
 
@@ -2974,6 +2976,7 @@
       // Een regel zonder nummer slaan we over, anders komt er een lege
       // speler op het scherm te staan.
       var schoon = rijen.filter(function (v) { return v.video; }).map(function (v) {
+        if (/^https?:\/\//i.test(v.video)) { var u = { titel: v.titel || "", url: v.video }; if (v.duur) u.duur = v.duur; return u; }
         return { titel: v.titel || "", video: v.video };
       });
       $("#v-stand").textContent = "Bezig";
