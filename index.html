@@ -96,6 +96,14 @@
         <p class="lead" style="font-size:13px">Wachtwoord vergeten?
           <button type="button" class="tekstknop" id="vergeten">Stuur mezelf een nieuwe</button>
         </p>
+        <div id="app-keuze" style="margin-top:6px;padding:14px 16px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2,#f6f6f4)">
+          <p style="margin:0 0 10px;font-size:13.5px;font-weight:700">Volg de cursus ook als app</p>
+          <div class="btn-row">
+            <a class="btn btn-g btn-sm" id="app-ios" aria-disabled="true" style="opacity:.6;pointer-events:none">iPhone: binnenkort in de App Store</a>
+            <button type="button" class="btn btn-g btn-sm" id="app-android">Android: installeer de app</button>
+          </div>
+          <p id="app-android-hulp" hidden style="margin:10px 0 0;font-size:12.5px;color:var(--muted)">Open deze pagina in Chrome, tik rechtsboven op de drie puntjes en kies <b>App installeren</b> of <b>Toevoegen aan startscherm</b>.</p>
+        </div>
         <p class="lead" style="font-size:12.5px">
           <a href="privacy.html">Wat we met je gegevens doen</a> · <a href="beveiliging.html">Beveiliging</a>
         </p>
@@ -312,6 +320,16 @@
     balk.hidden = true; try { localStorage.setItem("bhv-installeer-weg", "1"); } catch (e) {}
   });
   window.addEventListener("appinstalled", function () { balk.hidden = true; });
+  // Zet hier de App Store-link neer zodra Apple de app heeft goedgekeurd.
+  var APPSTORE = "";
+  var keuze = document.getElementById("app-keuze");
+  if (inApp || standalone) { keuze.hidden = true; }
+  var ios = document.getElementById("app-ios");
+  if (APPSTORE) { ios.href = APPSTORE; ios.target = "_blank"; ios.rel = "noopener"; ios.removeAttribute("aria-disabled"); ios.style.opacity = ""; ios.style.pointerEvents = ""; ios.textContent = "iPhone: download in de App Store"; }
+  document.getElementById("app-android").addEventListener("click", function () {
+    if (vraag) { vraag.prompt(); vraag = null; balk.hidden = true; return; }
+    document.getElementById("app-android-hulp").hidden = false;
+  });
 })();
 </script>
 </body>
