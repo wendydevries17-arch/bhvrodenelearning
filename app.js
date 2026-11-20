@@ -1707,7 +1707,7 @@
 
     if (u.geslaagd && examen) {
       uit += '<div class="goed" style="margin-top:18px"><b>Wat er nu gebeurt</b>' +
-        "Je certificaat staat hieronder. Het wordt straks ook automatisch naar je gemaild zodra wij de mailkoppeling hebben aangezet. " +
+        "Je certificaat staat hieronder. Je krijgt hem ook als PDF per mail. " +
         "Daarna volgt de praktijkdag, die wordt apart met je afgestemd.</div>";
     }
 
@@ -1966,7 +1966,7 @@
       if (nietBegonnen) {
         uit += '<div class="let"><b>' + nietBegonnen + " deelnemer" + (nietBegonnen === 1 ? "" : "s") +
           " nog niet begonnen</b>Zij hebben wel een account maar nog geen les afgerond. " +
-          "Zodra de mailkoppeling aanstaat krijgen ze hier vanzelf een herinnering over.</div>";
+          "Ze krijgen hier vanzelf een herinnering over per mail.</div>";
       }
 
       uit += '<div class="paneel" style="margin-top:22px"><div class="paneel-kop"><h2>Per bedrijf</h2></div>';
@@ -2125,8 +2125,7 @@
       "</div>" +
       '<div class="blok" id="u-uitkomst"><div class="blok-kop"><h3>Wat er gebeurt</h3></div>' +
       '<p class="lead">Voor elke persoon wordt een uitnodiging met een eigen link aangemaakt, dertig dagen geldig. ' +
-      "De mail gaat pas automatisch de deur uit als de mailkoppeling aanstaat. Tot die tijd krijg je hier de links te zien " +
-      "en kun je ze zelf versturen of doorgeven aan de contactpersoon.</p></div></div>";
+      "De uitnodigingsmail gaat automatisch de deur uit. Je ziet hier ook de links, voor als iemand de mail niet kan vinden.</p></div></div>";
 
     $("#beheer-paneel").innerHTML = uit;
     $("#u-versturen").addEventListener("click", verstuurUitnodigingen);
@@ -2208,8 +2207,8 @@
         '<span class="hint">Werkt de kopieerknop niet, klik dan in dit vak. Alles wordt dan geselecteerd en je drukt op Cmd+C.</span></div>' +
         '<div class="btn-row"><button type="button" class="btn btn-g btn-sm" id="u-kopieer-alles">Alle links kopieren</button></div>' +
         '<div class="let"><b>Bewaar deze links goed.</b> Wie de link heeft kan het account aanmaken, ' +
-        "al werkt hij alleen voor het e-mailadres waar hij bij hoort. Zodra de mailkoppeling aanstaat " +
-        "gaan deze links vanzelf de deur uit en hoef je hier niets meer mee te doen.</div>";
+        "al werkt hij alleen voor het e-mailadres waar hij bij hoort. De uitnodigingen zijn ook per mail verstuurd. " +
+        "Deze links heb je alleen nodig als iemand de mail niet kan vinden.</div>";
     }
 
     $("#u-uitkomst").innerHTML = uit;

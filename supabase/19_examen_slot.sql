@@ -1,0 +1,18 @@
+-- =====================================================================
+--  19. Eindexamen pas na alle kennistoetsen (20 nov 2026)
+--  Al toegepast in de database. Toegevoegd bovenaan het examen-deel
+--  van public.start_toets, direct na "if p_soort = 'examen' then":
+--  het examen start pas als elke live module met toetsvragen (algemeen
+--  of van het eigen bedrijf) een geslaagde kennistoets heeft. Zo kan
+--  niemand het examen via de API openen zonder de hoofdstukken.
+-- =====================================================================
+--    if exists (
+--      select 1 from modules mo
+--       where mo.cursus_id = v_cursus and mo.status = 'live'
+--         and (mo.organisatie_id is null or mo.organisatie_id = v_org)
+--         and exists (select 1 from vragen t where t.module_id = mo.id and t.soort = 'toets' and t.actief)
+--         and not exists (select 1 from pogingen pt where pt.inschrijving_id = p_inschrijving
+--                          and pt.soort = 'toets' and pt.module_id = mo.id and pt.geslaagd)
+--    ) then
+--      raise exception 'Het eindexamen gaat open zodra je alle hoofdstukken en kennistoetsen hebt afgerond';
+--    end if;

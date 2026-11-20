@@ -695,3 +695,4 @@ td .bar{width:92px}
 .p-contact .p-weg{padding:0 12px}
 .p-contact{padding-bottom:8px;border-bottom:1px solid var(--line)}
 @media (max-width:640px){.p-contact{grid-template-columns:1fr 1fr}.p-contact [data-c="rol"]{grid-column:1/-1}.p-contact .p-weg{grid-column:1/-1;justify-self:end;min-height:34px}}
+@media (max-width:600px){.cert{min-width:0;padding:26px 20px}.cert-top{flex-wrap:wrap;gap:12px}.cert-naam{font-size:28px;word-break:break-word}.cert-cursus{font-size:18px}.cert-grid{grid-template-columns:1fr 1fr;gap:12px}.cert-zegel{text-align:left}}
