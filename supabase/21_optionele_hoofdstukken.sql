@@ -46,3 +46,11 @@ revoke execute on function public.zet_module_voor_klant(uuid, uuid, boolean) fro
 grant execute on function public.zet_module_voor_klant(uuid, uuid, boolean) to authenticated;
 
 update public.modules set optioneel = true where titel = 'Risico''s per branche';
+
+-- Mailwachtrij hersteld (20 nov 2026): is_systeem() ontbrak en mail_log
+-- miste de kolom organisatie_id, waardoor mail_wachtrij faalde.
+alter table public.mail_log add column if not exists organisatie_id uuid references public.organisaties(id) on delete set null;
+create or replace function public.is_systeem() returns boolean language sql stable as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'role', '') = 'service_role'
+$$;
+-- uitnodiging_opnieuw: p_cursus is optioneel geworden (zie database).

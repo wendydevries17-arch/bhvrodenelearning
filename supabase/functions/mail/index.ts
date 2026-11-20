@@ -444,7 +444,14 @@ Deno.serve(async (req: Request) => {
   }
 
   const url = Deno.env.get("SUPABASE_URL")!;
-  const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+  // De oude anon-sleutel is uitgezet; gebruik de nieuwe publishable key.
+  let anon = "";
+  try {
+    const m = JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") ?? "{}");
+    const v = Object.values(m)[0];
+    if (typeof v === "string") anon = v;
+  } catch { /* valt terug op de oude sleutel */ }
+  if (!anon) anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const kop = {
     "apikey": anon,
     "Authorization": auth,

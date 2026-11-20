@@ -830,3 +830,8 @@ input.kies,select.kies,textarea.kies,.veld input,.veld select,.veld textarea{bor
 }
 @media (min-width:1000px){#view-dashboard>.voet{border-top:1px solid rgba(220,227,236,.9)}}
 @media (max-width:640px){.halte.af [data-toets]{display:none}.halte.af .halte-acties{flex-direction:row}}
+/* logo zonder witte achtergrond */
+.balk>img{background:none!important;padding:0!important;border-radius:0!important;height:40px}
+@media (max-width:600px){.balk>img{height:32px}}
+.auth-form .logo{height:56px}
+.balk>img.eigen-logo{background:#fff!important;padding:3px 5px!important;border-radius:8px!important}

@@ -618,7 +618,7 @@
       var b0 = document.querySelector(".balk");
       if (b0) {
         var lg = b0.querySelector("img");
-        if (lg) { lg.src = "img/logo-bhvroden.jpg"; lg.alt = "BHV Roden"; }
+        if (lg) { lg.src = "img/logo-bhv-kop.png"; lg.alt = "BHV Roden"; lg.classList.remove("eigen-logo"); }
         var nm = b0.querySelector(".naam");
         if (nm) nm.innerHTML = "BHV Roden<span>Leeromgeving</span>";
       }
@@ -647,7 +647,7 @@
     var balk = document.querySelector(".balk");
     if (balk) {
       var logo = balk.querySelector("img");
-      if (org.logo_url) { logo.src = org.logo_url; logo.alt = org.naam || ""; }
+      if (org.logo_url) { logo.src = org.logo_url; logo.alt = org.naam || ""; logo.classList.add("eigen-logo"); }
       var naam = balk.querySelector(".naam");
       if (naam) naam.innerHTML = esc(org.naam || "") + "<span>Leeromgeving</span>";
     }
@@ -2148,9 +2148,9 @@
     knop.disabled = true;
     knop.textContent = "Bezig";
     sb.rpc("uitnodiging_opnieuw", { p_email: knop.dataset.opnieuwMail }).then(function (r) {
-      if (r.error) {
+      if (r.error || r.data === false) {
         knop.disabled = false; knop.textContent = was;
-        toast(r.error.message);
+        melding("Opnieuw versturen lukte niet", r.error ? "Probeer het zo nog een keer." : "Er staat voor dit adres geen open uitnodiging meer.", "mis", r.error);
         return;
       }
       return sb.functions.invoke("mail", { body: { max: 10 } }).then(function (q) {
