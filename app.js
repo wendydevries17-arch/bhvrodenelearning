@@ -167,30 +167,79 @@
   /* =====================================================================
      INLOGGEN
      ===================================================================== */
+  /* Inloggen gaat met een code per mail. Geen wachtwoorden die kunnen
+     lekken of hergebruikt worden. Alleen beheerders (en het testaccount
+     voor de App Store) loggen in met een wachtwoord. Een code wordt alleen
+     verstuurd naar een adres dat al een account heeft: aanmelden kan
+     uitsluitend via een uitnodiging. */
+  var LOGIN = { modus: "mail" };
+  function zetLoginModus(m) {
+    LOGIN.modus = m;
+    $("#veld-code").hidden = m !== "code";
+    $("#veld-pw").hidden = m !== "pw";
+    $("#vergeten-rij").hidden = m !== "pw";
+    $("#login-ander").hidden = m !== "code";
+    $("#login-pw-wissel").textContent = m === "pw" ? "Inloggen met een code per mail" : "Beheerder? Inloggen met wachtwoord";
+    $("#pw").required = m === "pw";
+    $("#mail").readOnly = m === "code";
+    $("#login-knop").textContent = m === "mail" ? "Stuur mij een inlogcode" : "Inloggen";
+    $("#login-uitleg").textContent = m === "code"
+      ? "We hebben een code gestuurd naar " + $("#mail").value.trim() + ". Vul hem hieronder in. De code is 10 minuten geldig."
+      : m === "pw" ? "Log in met je e-mailadres en wachtwoord."
+      : "Vul het e-mailadres in waarop je de uitnodiging hebt ontvangen. We sturen je een inlogcode.";
+    $("#login-fout").hidden = true;
+    if (m === "code") setTimeout(function () { $("#code").focus(); }, 50);
+  }
+  $("#login-pw-wissel").addEventListener("click", function () { zetLoginModus(LOGIN.modus === "pw" ? "mail" : "pw"); });
+  $("#login-ander").addEventListener("click", function () { $("#code").value = ""; zetLoginModus("mail"); $("#mail").focus(); });
+
+  function stuurCode(adres) {
+    return sb.auth.signInWithOtp({ email: adres, options: { shouldCreateUser: false } });
+  }
+  function codeFout(err) {
+    var m = ((err && err.message) || "").toLowerCase();
+    if (m.indexOf("expired") > -1 || m.indexOf("invalid") > -1) return "<b>Deze code klopt niet</b>De code is verkeerd of verlopen. Controleer de cijfers, of vraag een nieuwe code aan.";
+    if (m.indexOf("rate") > -1 || m.indexOf("seconds") > -1) return "<b>Even wachten</b>Je hebt net al een code gekregen. Wacht een minuut en probeer het dan opnieuw.";
+    if (m.indexOf("failed to fetch") > -1) return "<b>Geen verbinding</b>Controleer je internet en probeer het zo nog een keer.";
+    return "<b>Er ging iets mis</b>" + esc((err && err.message) || "Onbekende melding.");
+  }
+
   $("#login-form").addEventListener("submit", function (e) {
     e.preventDefault();
     var knop = $("#login-knop"), fout = $("#login-fout");
+    var adres = $("#mail").value.trim();
     fout.hidden = true;
+    var tekst = knop.textContent;
     knop.disabled = true;
-    knop.textContent = "Bezig met inloggen";
+    knop.textContent = "Bezig";
+    var klaar = function () { knop.disabled = false; knop.textContent = tekst; };
+    var toonFout = function (html) { klaar(); fout.hidden = false; fout.innerHTML = html; };
 
-    sb.auth.signInWithPassword({
-      email: $("#mail").value.trim(),
-      password: $("#pw").value
-    }).then(function (res) {
-      knop.disabled = false;
-      knop.textContent = "Inloggen";
-      if (res.error) {
-        fout.hidden = false;
-        fout.innerHTML = "<b>" + foutTitel(res.error) + "</b>" + foutUitleg(res.error);
-        return;
-      }
-      naarApp();
-    }).catch(function (err) {
-      knop.disabled = false;
-      knop.textContent = "Inloggen";
-      fout.hidden = false;
-      fout.innerHTML = "<b>Geen verbinding</b>De leeromgeving kon niet worden bereikt. Controleer je internet en probeer het zo nog een keer.";
+    if (LOGIN.modus === "mail") {
+      if (!adres || adres.indexOf("@") < 0) { toonFout("<b>Vul je e-mailadres in</b>Het adres waarop je de uitnodiging hebt gekregen."); return; }
+      stuurCode(adres).then(function (r) {
+        klaar();
+        // Bestaat het adres niet, dan zeggen we dat niet hardop: zo kan
+        // niemand uitproberen welke adressen een account hebben.
+        if (r.error && !/signups not allowed|user not found|not found/i.test(r.error.message || "")) { toonFout(codeFout(r.error)); return; }
+        zetLoginModus("code");
+      }).catch(function (err) { toonFout(codeFout(err)); });
+      return;
+    }
+    if (LOGIN.modus === "code") {
+      var code = $("#code").value.replace(/\D/g, "");
+      if (code.length < 6) { toonFout("<b>Vul de code in</b>De code uit de mail bestaat uit cijfers."); return; }
+      sb.auth.verifyOtp({ email: adres, token: code, type: "email" }).then(function (r) {
+        if (r.error) { toonFout(codeFout(r.error)); return; }
+        klaar(); naarApp();
+      }).catch(function (err) { toonFout(codeFout(err)); });
+      return;
+    }
+    sb.auth.signInWithPassword({ email: adres, password: $("#pw").value }).then(function (res) {
+      if (res.error) { toonFout("<b>" + foutTitel(res.error) + "</b>" + foutUitleg(res.error)); return; }
+      klaar(); naarApp();
+    }).catch(function () {
+      toonFout("<b>Geen verbinding</b>De leeromgeving kon niet worden bereikt. Controleer je internet en probeer het zo nog een keer.");
     });
   });
 
@@ -207,7 +256,7 @@
     if (m.indexOf("legacy api key") > -1 || m.indexOf("invalid api key") > -1)
       return "Supabase gebruikt in dit project de nieuwe publishable key, en in config.js staat nog de oude. Haal in Supabase onder Project Settings, API Keys de sleutel op die begint met sb_publishable_ en zet die in config.js.";
     if (m.indexOf("invalid login") > -1)
-      return "Het e-mailadres of het wachtwoord klopt niet. Weet je je wachtwoord niet meer, klik dan hieronder op Stuur mezelf een nieuwe.";
+      return "Het e-mailadres of het wachtwoord klopt niet. Weet je je wachtwoord niet meer, klik dan hieronder op Wachtwoord vergeten.";
     if (m.indexOf("email not confirmed") > -1)
       return "Dit account moet nog worden bevestigd. Laat het weten via info@bhvroden.nl, dan zetten we het open.";
     if (m.indexOf("failed to fetch") > -1)
@@ -246,7 +295,7 @@
         fout.hidden = false;
         fout.innerHTML = "<b>Het versturen lukte niet</b>Probeer het zo nog een keer, of mail ons op info@bhvroden.nl.";
       })
-      .then(function () { knop.disabled = false; knop.textContent = "Stuur mezelf een nieuwe"; });
+      .then(function () { knop.disabled = false; knop.textContent = "Wachtwoord vergeten"; });
   });
 
   $("#nieuwpw-form").addEventListener("submit", function (e) {
@@ -411,7 +460,7 @@
       var u = r.data;
       if (r.error || !u || !u.geldig) {
         var reden = (!u || !u.email) ? "Deze link hoort bij geen enkele uitnodiging. Controleer of je hem helemaal hebt gekopieerd."
-          : u.gebruikt ? "Deze uitnodiging is al gebruikt. Log gewoon in met je e-mailadres en wachtwoord."
+          : u.gebruikt ? "Deze uitnodiging is al gebruikt. Log in met je e-mailadres, dan sturen we je een code."
           : u.verlopen ? "Deze uitnodiging is verlopen. Vraag een nieuwe aan bij je werkgever."
           : "Deze link werkt niet meer.";
         $("#aanmeld-intro").innerHTML =
@@ -439,66 +488,75 @@
   }
   var AANMELD = null;
 
+  /* Aanmelden: de functie "aanmelden" controleert de uitnodiging en maakt
+     het account aan, zonder wachtwoord. Daarna krijgt de cursist een code
+     per mail en is hij binnen. Zelf een account aanmaken zonder
+     uitnodiging kan niet. */
   $("#aanmeld-form").addEventListener("submit", function (e) {
     e.preventDefault();
     if (!AANMELD) return;
     var knop = $("#aanmeld-knop"), fout = $("#aanmeld-fout");
     fout.hidden = true;
-    knop.disabled = true; knop.textContent = "Bezig met aanmaken";
-
+    knop.disabled = true; knop.textContent = "Bezig";
     var mislukt = function (titel, tekst) {
-      knop.disabled = false; knop.textContent = "Account aanmaken";
+      knop.disabled = false; knop.textContent = "Stuur mij een code";
       fout.hidden = false;
       fout.innerHTML = "<b>" + titel + "</b>" + tekst;
     };
+    sb.functions.invoke("aanmelden", { body: {
+      token: AANMELD.token,
+      voornaam: $("#aa-voor").value.trim(),
+      achternaam: $("#aa-achter").value.trim(),
+      geboortedatum: $("#aa-gb").value
+    } }).then(function (r) {
+      var d = r.data || {};
+      if (r.error || !d.ok) { mislukt("Aanmelden lukte niet", esc(d.fout || "Probeer het zo nog een keer, of mail ons op info@bhvroden.nl.")); return null; }
+      return stuurCode(AANMELD.email).then(function (r2) {
+        if (r2.error) { mislukt("De code kon niet worden verstuurd", codeFout(r2.error).replace(/<\/?b>/g, "")); return; }
+        knop.disabled = false; knop.textContent = "Stuur mij een code";
+        $("#aanmeld-velden").hidden = true;
+        $("#aanmeld-code").hidden = false;
+        $("#aa-code-uitleg").innerHTML = "<b>Kijk in je mail</b>We hebben een code gestuurd naar " + esc(AANMELD.email) + ". De code is 10 minuten geldig.";
+        setTimeout(function () { $("#aa-code").focus(); }, 50);
+      });
+    }).catch(function (err) {
+      mislukt("Geen verbinding", esc(err && err.message ? err.message : err));
+    });
+  });
 
-    sb.auth.signUp({
-      email: AANMELD.email,
-      password: $("#aa-pw").value,
-      options: {
-        data: {
-          voornaam: $("#aa-voor").value.trim(),
-          achternaam: $("#aa-achter").value.trim(),
-          geboortedatum: $("#aa-gb").value
-        }
-      }
-    }).then(function (res) {
-      if (res.error) {
-        var m = (res.error.message || "").toLowerCase();
-        if (m.indexOf("already registered") > -1 || m.indexOf("already been registered") > -1) {
-          /* Account bestond al: gewoon inloggen en daarna koppelen. */
-          return sb.auth.signInWithPassword({ email: AANMELD.email, password: $("#aa-pw").value })
-            .then(function (r2) {
-              if (r2.error) {
-                mislukt("Dit account bestaat al",
-                  "Er is al een account op " + esc(AANMELD.email) + ", maar dit wachtwoord klopt er niet bij. Ga naar het inlogscherm, of vraag een nieuw wachtwoord aan via info@bhvroden.nl.");
-                return null;
-              }
-              return koppelEnStart();
-            });
-        }
-        mislukt("Aanmaken mislukt", esc(res.error.message));
-        return null;
-      }
-      if (!res.data || !res.data.session) {
-        mislukt("Nog even bevestigen",
-          "Je account is aangemaakt, maar er wacht nog een bevestiging. " +
-          'Laat het weten via <a href="mailto:info@bhvroden.nl">info@bhvroden.nl</a>, dan zetten we het meteen open.');
-        return null;
+  $("#aa-code-knop").addEventListener("click", function () {
+    var knop = $("#aa-code-knop"), fout = $("#aanmeld-code-fout");
+    var code = $("#aa-code").value.replace(/\D/g, "");
+    fout.hidden = true;
+    if (code.length < 6) { fout.hidden = false; fout.innerHTML = "<b>Vul de code in</b>De code uit de mail bestaat uit cijfers."; return; }
+    knop.disabled = true; knop.textContent = "Bezig";
+    sb.auth.verifyOtp({ email: AANMELD.email, token: code, type: "email" }).then(function (r) {
+      if (r.error) {
+        knop.disabled = false; knop.textContent = "Bevestigen en beginnen";
+        fout.hidden = false; fout.innerHTML = codeFout(r.error); return;
       }
       return koppelEnStart();
     }).catch(function (err) {
-      mislukt("Geen verbinding", esc(err && err.message ? err.message : err));
+      knop.disabled = false; knop.textContent = "Bevestigen en beginnen";
+      fout.hidden = false; fout.innerHTML = codeFout(err);
+    });
+  });
+  $("#aa-code").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); $("#aa-code-knop").click(); } });
+  $("#aa-opnieuw").addEventListener("click", function () {
+    if (!AANMELD) return;
+    stuurCode(AANMELD.email).then(function (r) {
+      if (r.error) { $("#aanmeld-code-fout").hidden = false; $("#aanmeld-code-fout").innerHTML = codeFout(r.error); return; }
+      toast("Nieuwe code verstuurd");
     });
   });
 
   function koppelEnStart() {
     return sb.rpc("wissel_uitnodiging_in", { p_token: AANMELD.token }).then(function (r) {
       if (r.error) {
-        $("#aanmeld-fout").hidden = false;
-        $("#aanmeld-fout").innerHTML = "<b>Koppelen mislukt</b>" + esc(r.error.message);
-        $("#aanmeld-knop").disabled = false;
-        $("#aanmeld-knop").textContent = "Account aanmaken";
+        $("#aanmeld-code-fout").hidden = false;
+        $("#aanmeld-code-fout").innerHTML = "<b>Koppelen mislukt</b>" + esc(r.error.message);
+        $("#aa-code-knop").disabled = false;
+        $("#aa-code-knop").textContent = "Bevestigen en beginnen";
         return;
       }
       history.replaceState(null, "", location.pathname);

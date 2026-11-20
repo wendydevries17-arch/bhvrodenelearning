@@ -25,7 +25,7 @@
         <span class="waas"></span>
         <div class="bij">
           <h3>Welkom bij<br>BHV Roden</h3>
-          <p>Nog een wachtwoord kiezen en je kunt beginnen. De cursus duurt ongeveer zes uur en je kunt tussendoor stoppen.</p>
+          <p>Vul je gegevens in en je kunt beginnen. De cursus duurt ongeveer vier uur en je kunt tussendoor stoppen.</p>
         </div>
       </div>
       <form class="auth-form" id="aanmeld-form" autocomplete="on">
@@ -48,13 +48,19 @@
             <input id="aa-gb" type="date" required min="1920-01-01">
             <span class="hint">Komt op je certificaat te staan.</span>
           </div>
-          <div class="veld">
-            <label for="aa-pw">Kies een wachtwoord</label>
-            <input id="aa-pw" type="password" autocomplete="new-password" required minlength="8">
-            <span class="hint">Minimaal acht tekens.</span>
-          </div>
+          <p class="lead" style="font-size:13.5px">Je hebt geen wachtwoord nodig. We sturen je een code per mail om in te loggen.</p>
           <div class="fout" id="aanmeld-fout" hidden></div>
-          <button type="submit" class="btn btn-a btn-blok" id="aanmeld-knop">Account aanmaken</button>
+          <button type="submit" class="btn btn-a btn-blok" id="aanmeld-knop">Stuur mij een code</button>
+        </div>
+        <div id="aanmeld-code" hidden>
+          <div class="goed" id="aa-code-uitleg"></div>
+          <div class="veld">
+            <label for="aa-code">Code uit de mail</label>
+            <input id="aa-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" placeholder="123456">
+          </div>
+          <div class="fout" id="aanmeld-code-fout" hidden></div>
+          <button type="button" class="btn btn-a btn-blok" id="aa-code-knop">Bevestigen en beginnen</button>
+          <p class="lead" style="font-size:13px">Geen mail gekregen? Kijk in je ongewenste mail of <button type="button" class="tekstknop" id="aa-opnieuw">stuur een nieuwe code</button>.</p>
           <p class="lead" style="font-size:12.5px;margin-top:10px">
             Je geboortedatum komt op je certificaat. <a href="privacy.html">Wat we met je gegevens doen</a>.
           </p>
@@ -79,22 +85,28 @@
       <form class="auth-form" id="login-form" autocomplete="on">
         <img class="logo" src="img/logo-bhvroden.jpg" alt="BHV Roden">
         <h2>Inloggen</h2>
-        <p class="lead">Log in met het e-mailadres waarop je de uitnodiging hebt ontvangen.</p>
+        <p class="lead" id="login-uitleg">Vul het e-mailadres in waarop je de uitnodiging hebt ontvangen. We sturen je een inlogcode.</p>
 
         <div class="veld">
           <label for="mail">E-mailadres</label>
           <input id="mail" name="username" type="email" autocomplete="username" required placeholder="naam@bedrijf.nl">
         </div>
-        <div class="veld">
+        <div class="veld" id="veld-code" hidden>
+          <label for="code">Code uit de mail</label>
+          <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" placeholder="123456">
+        </div>
+        <div class="veld" id="veld-pw" hidden>
           <label for="pw">Wachtwoord</label>
-          <input id="pw" name="password" type="password" autocomplete="current-password" required>
+          <input id="pw" name="password" type="password" autocomplete="current-password">
         </div>
 
         <div class="fout" id="login-fout" hidden></div>
 
-        <button type="submit" class="btn btn-a btn-blok" id="login-knop">Inloggen</button>
-        <p class="lead" style="font-size:13px">Wachtwoord vergeten?
-          <button type="button" class="tekstknop" id="vergeten">Stuur mezelf een nieuwe</button>
+        <button type="submit" class="btn btn-a btn-blok" id="login-knop">Stuur mij een inlogcode</button>
+        <p class="lead" style="font-size:13px" id="login-onder">
+          <button type="button" class="tekstknop" id="login-ander" hidden>Ander e-mailadres of nieuwe code</button>
+          <button type="button" class="tekstknop" id="login-pw-wissel">Beheerder? Inloggen met wachtwoord</button>
+          <span id="vergeten-rij" hidden> · <button type="button" class="tekstknop" id="vergeten">Wachtwoord vergeten</button></span>
         </p>
         <div id="app-keuze" style="margin-top:6px;padding:14px 16px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface-2,#f6f6f4)">
           <p style="margin:0 0 10px;font-size:13.5px;font-weight:700">Volg de cursus ook als app</p>
