@@ -107,6 +107,7 @@
   function toon(id) {
     ["view-laden", "view-profiel", "view-dashboard", "view-les", "view-toets", "view-beheer", "view-plan"]
       .forEach(function (v) { var e = $("#" + v); if (e) e.hidden = (v !== id); });
+    var vbalk = $("#volgende-balk"); if (vbalk && id !== "view-dashboard") vbalk.classList.remove("zichtbaar");
     window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     // Focus naar het nieuwe scherm, anders moet wie met het toetsenbord
     // werkt bij elke stap opnieuw vanaf de bovenkant tabben.
@@ -797,7 +798,7 @@
         if (r.error) throw r.error;
         S.inschrijving = r.data;
         return Promise.all([
-          sb.from("modules").select("id, titel, volgorde, organisatie_id, status").eq("cursus_id", S.cursus.id).neq("status", "archief").order("volgorde"),
+          sb.from("modules").select("id, titel, volgorde, organisatie_id, status, optioneel").eq("cursus_id", S.cursus.id).neq("status", "archief").order("volgorde"),
           sb.from("vragen").select("id, les_id, module_id, soort, volgorde, vraag, opties").eq("cursus_id", S.cursus.id).in("soort", ["evaluatie", "toets"]).order("volgorde"),
           sb.from("voortgang").select("les_id, antwoorden, afgerond_op").eq("inschrijving_id", S.inschrijving),
           sb.from("pogingen").select("id, soort, module_id, score, geslaagd, ingeleverd_op").eq("inschrijving_id", S.inschrijving).order("gestart_op"),
@@ -806,13 +807,17 @@
             ? sb.from("organisaties").select("id, naam, is_eigenaar, kleur_primair, kleur_accent, ronde_hoeken, logo_url").eq("actief", true).order("is_eigenaar", { ascending: false }).order("naam")
             : Promise.resolve({ data: [] }),
           // Lessen die voor een bedrijf uit staan. Bestaat de tabel nog niet, dan staat alles aan.
-          sb.from("klant_les_uit").select("organisatie_id, les_id").then(function (x) { return x.error ? { data: [] } : x; })
+          sb.from("klant_les_uit").select("organisatie_id, les_id").then(function (x) { return x.error ? { data: [] } : x; }),
+          // Optionele hoofdstukken die voor een bedrijf aan staan.
+          sb.from("klant_module_aan").select("organisatie_id, module_id").then(function (x) { return x.error ? { data: [] } : x; })
         ]);
       })
       .then(function (r) {
         r.forEach(function (x) { if (x.error) throw x.error; });
         S.lesUit = {};
         (r[6].data || []).forEach(function (u) { (S.lesUit[u.organisatie_id] = S.lesUit[u.organisatie_id] || {})[u.les_id] = true; });
+        S.modAan = {};
+        (r[7].data || []).forEach(function (u) { (S.modAan[u.organisatie_id] = S.modAan[u.organisatie_id] || {})[u.module_id] = true; });
         // We bewaren alles wat de database teruggeeft, en laten
         // daarna alleen zien wat hoort bij het bedrijf waar je naar
         // kijkt. Voor een cursist is dat altijd zijn eigen bedrijf.
@@ -985,6 +990,8 @@
       if (status === "concept") return true;
       if (!m.organisatie_id) return false;
     } else if (status !== "live") return false;
+    // Een optioneel hoofdstuk staat uit, tenzij het voor dit bedrijf aan is gezet.
+    if (m.optioneel && !((S.modAan || {})[kijkOrgId()] || {})[m.id]) return false;
     return !m.organisatie_id || m.organisatie_id === kijkOrgId();
   }
   function bouwModules() {
@@ -1092,59 +1099,56 @@
     $("#dash-status").textContent =
       examenGehaald() ? "Geslaagd" : af === 0 ? "Nog niet begonnen" : pct === 100 ? "Klaar voor het examen" : "Bezig";
 
-    var uit = "";
-    S.modules.forEach(function (m, i) {
+    /* De cursus als route: elk hoofdstuk een halte op één lijn, van
+       begin tot examen. Afgerond is groen, waar je nu bent is rood, de
+       rest staat op slot. Per halte alleen de knop die je nu nodig hebt. */
+    var uit = '<ol class="route">', nuGezet = false;
+    S.modules.forEach(function (m) {
       var lAf = m.lessen.filter(function (l) { return lesAf(l.id); }).length;
       var klaar = moduleAf(m);
-      var chip = klaar ? '<span class="chip af">Afgerond</span>'
-        : lAf ? '<span class="chip bezig">Bezig</span>'
-              : '<span class="chip nieuw">Nog te doen</span>';
-      var mpct = m.lessen.length ? Math.round(lAf * 100 / m.lessen.length) : 0;
       var eerste = m.lessen.find(function (l) { return !lesAf(l.id); }) || m.lessen[0];
       var kanOpen = eerste && lesOpen(eerste.id);
-
-      uit += '<div class="kaart"><div class="kaart-body">' +
-        chip +
-        "<h3>" + esc(m.titel) + "</h3>" +
-        '<div class="kaart-meta"><span>' + m.lessen.length + " lessen</span>" +
-        (moduleHeeftToets(m) ? "<span>kennistoets</span>" : "") + "</div>" +
-        '<span class="bar"><span style="width:' + mpct + '%"></span></span>' +
-        '<div class="bar-rij"><span>' + lAf + " van " + m.lessen.length + " af</span><span>" + mpct + "%</span></div>" +
-        "</div><div class=\"kaart-foot\">";
-
-      if (eerste) {
-        uit += '<button type="button" class="btn ' + (kanOpen ? "btn-p" : "btn-g") + '" data-les="' + eerste.id + '"' +
-          (kanOpen ? "" : " disabled") + ">" +
-          (lAf === 0 ? "Beginnen" : lAf === m.lessen.length ? "Lessen teruglezen" : "Verder gaan") + "</button>";
-        if (!kanOpen) uit += '<span class="slot">' + IC.slot + "De cursus loopt op volgorde. Rond eerst het deel hierboven af</span>";
-      } else {
-        uit += '<span class="slot">' + IC.slot + "Aan dit onderdeel wordt nog gewerkt</span>";
+      var heeftT = moduleHeeftToets(m), tOk = heeftT && toetsGehaald(m.id), tOpen = heeftT && moduleLessenAf(m);
+      var stand = klaar ? "af" : (!nuGezet && kanOpen) ? "nu" : kanOpen ? "open" : "dicht";
+      if (stand === "nu") nuGezet = true;
+      var mpct = m.lessen.length ? Math.round(lAf * 100 / m.lessen.length) : 0;
+      var meta = m.lessen.length + (m.lessen.length === 1 ? " les" : " lessen") +
+        (heeftT ? (tOk ? ", kennistoets gehaald" : ", met kennistoets") : "") +
+        (m.organisatie_id ? ", eigen hoofdstuk" : "");
+      var knoppen = "";
+      if (!eerste) {
+        meta = "Aan dit hoofdstuk wordt nog gewerkt";
+      } else if (stand === "nu" || stand === "open") {
+        if (tOpen && !tOk) knoppen += '<button type="button" class="btn btn-a" data-toets="' + m.id + '">Kennistoets maken</button>';
+        else knoppen += '<button type="button" class="btn ' + (stand === "nu" ? "btn-a" : "btn-g") + '" data-les="' + eerste.id + '">' + (lAf === 0 ? "Beginnen" : "Verder gaan") + "</button>";
+      } else if (stand === "af") {
+        knoppen += '<button type="button" class="btn btn-g btn-sm" data-les="' + m.lessen[0].id + '">Teruglezen</button>';
+        if (heeftT) knoppen += '<button type="button" class="btn btn-g btn-sm" data-toets="' + m.id + '">Toets opnieuw</button>';
       }
-      if (moduleHeeftToets(m)) {
-        var tOpen = moduleLessenAf(m);
-        var tOk = toetsGehaald(m.id);
-        uit += '<button type="button" class="btn ' + (tOk ? "btn-g" : tOpen ? "btn-a" : "btn-g") + '" data-toets="' + m.id + '"' +
-          (tOpen ? "" : " disabled") + ">" +
-          (tOk ? "Kennistoets opnieuw maken" : "Kennistoets maken") + "</button>";
-        if (!tOpen) uit += '<span class="slot">' + IC.slot + "Eerst alle lessen van deze module afronden</span>";
-      }
-      uit += "</div></div>";
+      uit += '<li class="halte ' + stand + '"' + (stand === "nu" ? ' aria-current="step"' : "") + ">" +
+        '<span class="knoop" aria-hidden="true">' + (stand === "af" ? IC.vink : stand === "dicht" ? IC.slot : "") + "</span>" +
+        '<div class="halte-in"><div class="halte-tekst">' +
+          "<h3>" + esc(m.titel) + "</h3>" +
+          '<p class="halte-meta">' + (stand === "dicht" ? "Gaat open als het vorige hoofdstuk af is" : esc(meta)) + "</p>" +
+          (stand === "af" || stand === "dicht" ? "" :
+            '<div class="halte-voortgang"><span class="bar"><span style="width:' + mpct + '%"></span></span><span class="tnum">' + lAf + "/" + m.lessen.length + "</span></div>") +
+        "</div>" + (knoppen ? '<div class="halte-acties">' + knoppen + "</div>" : "") + "</div></li>";
     });
 
-    // Eindexamen
+    // Eindexamen: de laatste halte.
     var exOk = examenGehaald();
     var exOpen = examenOpen();
-    uit += '<div class="kaart"><div class="kaart-body">' +
-      (exOk ? '<span class="chip af">Geslaagd</span>' : exOpen ? '<span class="chip bezig">Klaar om te maken</span>' : '<span class="chip nieuw">Nog op slot</span>') +
-      "<h3>Eindexamen</h3>" +
-      '<div class="kaart-meta"><span>' + (S.cursus.aantal_examenvragen || T_EXAMEN_STANDAARD) + " vragen</span><span>" + S.cursus.slaagcriterium + "% nodig</span></div>" +
-      "<p class=\"lead\">De vragen worden geloot uit de examenbank, dus elke poging is anders. Haal je het niet, dan mag je het opnieuw proberen.</p>" +
-      '</div><div class="kaart-foot">' +
-      '<button type="button" class="btn ' + (exOpen ? "btn-a" : "btn-g") + '" id="start-examen"' + (exOpen ? "" : " disabled") + ">" +
-      (exOk ? "Examen opnieuw maken" : "Eindexamen starten") + "</button>" +
-      (exOpen ? "" : '<span class="slot">' + IC.slot + "Eerst alle modules en kennistoetsen afronden</span>") +
-      (exOk ? '<button type="button" class="btn btn-g" id="toon-cert">Mijn certificaat bekijken</button>' : "") +
-      "</div></div>";
+    var exStand = exOk ? "af" : exOpen ? "nu" : "dicht";
+    uit += '<li class="halte eind ' + exStand + '">' +
+      '<span class="knoop" aria-hidden="true">' + (exOk ? IC.vink : exOpen ? "" : IC.slot) + "</span>" +
+      '<div class="halte-in"><div class="halte-tekst"><h3>Eindexamen</h3>' +
+      '<p class="halte-meta">' + (S.cursus.aantal_examenvragen || T_EXAMEN_STANDAARD) + " vragen, " + S.cursus.slaagcriterium + "% nodig. " +
+      (exOk ? "Geslaagd." : exOpen ? "Elke poging krijgt andere vragen." : "Gaat open als alle hoofdstukken en kennistoetsen af zijn.") + "</p></div>" +
+      ((exOpen || exOk) ? '<div class="halte-acties">' +
+        (exOk ? '<button type="button" class="btn btn-a" id="toon-cert">Mijn certificaat</button>' +
+                '<button type="button" class="btn btn-g btn-sm" id="start-examen">Examen opnieuw</button>'
+              : '<button type="button" class="btn btn-a" id="start-examen">Eindexamen starten</button>') + "</div>" : "") +
+      "</div></li></ol>";
 
     $("#dash-modules").innerHTML = uit;
 
@@ -1195,6 +1199,20 @@
       else if (s.soort === "examen") startToets("examen", null);
       else toonCertificaat();
     };
+    // Op de telefoon: zodra de grote knop uit beeld scrolt, blijft de
+    // volgende stap onderin het scherm staan. Eén tik en je bent verder.
+    var vb = $("#volgende-balk"), vk = $("#vb-knop");
+    if (vb && vk) {
+      vk.textContent = s.knop;
+      vk.onclick = knop.onclick;
+      if (!tekenVerderKnop.obs && "IntersectionObserver" in window) {
+        tekenVerderKnop.obs = new IntersectionObserver(function (e) {
+          var dash = $("#view-dashboard");
+          vb.classList.toggle("zichtbaar", !e[0].isIntersecting && dash && !dash.hidden && !$("#dash-verder").hidden);
+        });
+        tekenVerderKnop.obs.observe(knop);
+      }
+    }
   }
 
   /* =====================================================================
@@ -2310,9 +2328,10 @@
       if (r.error) throw r.error;
       var cid = r.data && r.data[0] && r.data[0].id;
       return Promise.all([
-        sb.from("modules").select("id, titel, volgorde, organisatie_id, status").eq("cursus_id", cid).eq("status", "live").order("volgorde"),
+        sb.from("modules").select("id, titel, volgorde, organisatie_id, status, optioneel").eq("cursus_id", cid).eq("status", "live").order("volgorde"),
         sb.from("lessen").select("id, module_id, titel, volgorde, videos, dias, duur_seconden, verplicht").order("volgorde"),
-        sb.from("klant_les_uit").select("organisatie_id, les_id")
+        sb.from("klant_les_uit").select("organisatie_id, les_id"),
+        sb.from("klant_module_aan").select("organisatie_id, module_id")
       ]);
     }).then(function (r) {
       r.forEach(function (x) { if (x.error) throw x.error; });
@@ -2321,6 +2340,8 @@
       LP.lessen = (r[1].data || []).filter(function (l) { return mids[l.module_id]; });
       LP.uit = {};
       (r[2].data || []).forEach(function (u) { (LP.uit[u.organisatie_id] = LP.uit[u.organisatie_id] || {})[u.les_id] = true; });
+      LP.aan = {};
+      (r[3].data || []).forEach(function (u) { (LP.aan[u.organisatie_id] = LP.aan[u.organisatie_id] || {})[u.module_id] = true; });
       tekenLP();
     });
   }
@@ -2330,7 +2351,7 @@
     var uit = LP.uit[LP.org] || {};
     var mods = LP.modules.filter(function (m) { return !m.organisatie_id || m.organisatie_id === LP.org; });
     var h = '<div class="kop"><h1>Lessen per <em>klant</em></h1>' +
-      "<p>Kies per bedrijf welke lessen de cursisten krijgen. Met het slotje maak je een les verplicht voor iedereen. De totale tijd onderaan rekent meteen mee.</p></div>";
+      "<p>Kies per bedrijf welke lessen de cursisten krijgen. Optionele hoofdstukken staan standaard uit; zet ze hier aan per bedrijf. Met het slotje maak je een les verplicht voor iedereen. De totale tijd onderaan rekent meteen mee.</p></div>";
     h += '<div class="lp-kies"><label for="lp-org">Bedrijf</label><select class="kies" id="lp-org">' +
       orgs.map(function (o) {
         return '<option value="' + esc(o.id) + '"' + (o.id === LP.org ? " selected" : "") + ">" + esc(o.naam) + (o.is_eigenaar ? " (eigen omgeving)" : "") + "</option>";
@@ -2340,9 +2361,17 @@
     mods.forEach(function (m, mi) {
       var ls = LP.lessen.filter(function (l) { return l.module_id === m.id; });
       if (!ls.length) return;
+      var optUit = m.optioneel && !((LP.aan || {})[LP.org] || {})[m.id];
       var mt = 0, maan = 0;
-      ls.forEach(function (l) { if (!uit[l.id]) { mt += lesSeconden(l); maan++; } });
+      ls.forEach(function (l) { if (!uit[l.id] && !optUit) { mt += lesSeconden(l); maan++; } });
       var allesAan = maan === ls.length, niets = maan === 0;
+      if (m.optioneel) {
+        h += '<tr class="lp-mod lp-opt"><td class="lp-aan"><label class="lp-schakel"><input type="checkbox" data-lp-opt="' + esc(m.id) + '"' + (optUit ? "" : " checked") + ' aria-label="Optioneel hoofdstuk aan of uit"><span></span></label></td>' +
+          '<td colspan="2"><b>' + esc(m.titel) + '</b> <span class="chip">optioneel</span>' +
+          '<span class="lp-sub">' + (optUit ? "Staat uit. Zet aan als dit bedrijf dit hoofdstuk krijgt." : maan + " van " + ls.length + " lessen aan") + "</span></td>" +
+          '<td class="lp-tijd"><b>' + tijd(mt) + "</b></td></tr>";
+        if (optUit) { alle += ls.length; return; }
+      } else
       h += '<tr class="lp-mod"><td class="lp-aan"><input type="checkbox" data-lp-mod="' + esc(m.id) + '"' + (allesAan ? " checked" : "") + ' aria-label="Hele hoofdstuk aan of uit"></td>' +
         '<td colspan="2"><b>' + esc(m.titel) + "</b>" + (m.organisatie_id ? ' <span class="chip nieuw">eigen hoofdstuk</span>' : "") +
         '<span class="lp-sub">' + maan + " van " + ls.length + " lessen aan</span></td>" +
@@ -2373,6 +2402,24 @@
       c.addEventListener("change", function () {
         var ids = LP.lessen.filter(function (l) { return l.module_id === c.dataset.lpMod && !l.verplicht; }).map(function (l) { return l.id; });
         zetLes(ids, c.checked);
+      });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-lp-opt]").forEach(function (c) {
+      c.addEventListener("change", function () {
+        var org = LP.org, mid = c.dataset.lpOpt, aan = c.checked;
+        var a = (LP.aan[org] = LP.aan[org] || {});
+        if (aan) a[mid] = true; else delete a[mid];
+        tekenLP();
+        sb.rpc("zet_module_voor_klant", { p_org: org, p_module: mid, p_aan: aan }).then(function (r) {
+          if (r.error) throw r.error;
+          toast(aan ? "Hoofdstuk staat aan voor dit bedrijf" : "Hoofdstuk staat uit voor dit bedrijf");
+          S.herladen = true;
+          if (S.modAan) { S.modAan[org] = Object.assign({}, a); }
+        }).catch(function (e) {
+          if (aan) delete a[mid]; else a[mid] = true;
+          tekenLP();
+          melding("Opslaan lukte niet", "Er is niets veranderd. Probeer het zo nog een keer.", "mis", e);
+        });
       });
     });
     $("#beheer-paneel").querySelectorAll("[data-lp-slot]").forEach(function (b) {

@@ -696,3 +696,137 @@ td .bar{width:92px}
 .p-contact{padding-bottom:8px;border-bottom:1px solid var(--line)}
 @media (max-width:640px){.p-contact{grid-template-columns:1fr 1fr}.p-contact [data-c="rol"]{grid-column:1/-1}.p-contact .p-weg{grid-column:1/-1;justify-self:end;min-height:34px}}
 @media (max-width:600px){.cert{min-width:0;padding:26px 20px}.cert-top{flex-wrap:wrap;gap:12px}.cert-naam{font-size:28px;word-break:break-word}.cert-cursus{font-size:18px}.cert-grid{grid-template-columns:1fr 1fr;gap:12px}.cert-zegel{text-align:left}}
+
+/* =====================================================================
+   VORMGEVING 2.0 (nov 2026)
+   Diepte met lagen schaduw in de huisstijlkleur, ruimere rondingen,
+   knoppen die reageren op aanraking, en de cursus als route.
+   ===================================================================== */
+:root{
+  --ground:#EEF2F7;
+  --surface-2:#E9EEF5;
+  --line:#DCE3EC;
+  --line-2:#C3CDDA;
+  --tint:#E8EEF8;
+  --radc:16px;
+  --radl:24px;
+  --sh-1:0 1px 2px rgba(15,31,61,.06),0 1px 1px rgba(15,31,61,.03);
+  --sh-2:0 1px 2px rgba(15,31,61,.05),0 10px 28px -8px rgba(15,31,61,.16);
+  --sh-3:0 2px 6px rgba(15,31,61,.06),0 28px 60px -14px rgba(15,31,61,.30);
+  --zacht:cubic-bezier(.2,.8,.2,1);
+}
+body{background:
+  radial-gradient(1200px 520px at 85% -10%,rgba(15,31,61,.07),transparent 60%),
+  radial-gradient(900px 480px at -10% 30%,rgba(183,28,28,.04),transparent 60%),
+  var(--ground);background-attachment:fixed}
+[id^="view-"]:focus,[id^="view-"]:focus-visible{outline:none}
+
+/* knoppen: voelbaar */
+.btn{min-height:46px;font-weight:700;letter-spacing:.005em;transition:transform .16s var(--zacht),box-shadow .16s var(--zacht),background .16s,border-color .16s;-webkit-tap-highlight-color:transparent}
+.btn-a{background:linear-gradient(180deg,#C92A2A,var(--a));box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 16px -6px rgba(183,28,28,.65)}
+.btn-a:hover:not(:disabled){background:linear-gradient(180deg,#B92222,var(--a2));transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 10px 22px -8px rgba(183,28,28,.7)}
+.btn-p{background:linear-gradient(180deg,var(--p2),var(--p));box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 6px 16px -6px rgba(15,31,61,.55)}
+.btn-p:hover:not(:disabled){transform:translateY(-1px)}
+.btn-g{box-shadow:var(--sh-1)}
+.btn-g:hover:not(:disabled){border-color:var(--p);transform:translateY(-1px)}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.985)}
+.btn-sm{min-height:38px}
+.btn:disabled{box-shadow:none}
+
+/* kaarten en blokken: zwevend */
+.kaart,.blok,.inhoud,.hero-kaart,.paneel{box-shadow:var(--sh-2);border-color:rgba(220,227,236,.9)}
+.blok{padding:26px}
+.goed,.let{border-radius:12px;border-left-width:4px}
+.optie{border-radius:14px;padding:14px 16px;box-shadow:var(--sh-1);transition:transform .14s var(--zacht),border-color .14s,background .14s,box-shadow .14s}
+.optie:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--sh-2)}
+.optie .k{border-radius:8px;width:26px;height:26px}
+.optie.juist{box-shadow:0 0 0 3px rgba(27,122,62,.14)}
+.optie.onjuist{box-shadow:0 0 0 3px rgba(181,53,42,.12)}
+input.kies,select.kies,textarea.kies,.veld input,.veld select,.veld textarea{border-radius:12px!important;transition:border-color .14s,box-shadow .14s}
+.veld input:focus,.veld select:focus,.veld textarea:focus,.kies:focus{outline:none;border-color:var(--p)!important;box-shadow:0 0 0 4px rgba(15,31,61,.12)}
+.video{border-radius:var(--radc);box-shadow:var(--sh-2)}
+.chip{letter-spacing:.06em}
+
+/* bovenbalk: vast en met diepte */
+.balk{position:sticky;top:0;z-index:120;box-shadow:0 1px 0 rgba(255,255,255,.06),0 8px 24px -10px rgba(15,31,61,.55)}
+.balk>img{border-radius:8px}
+
+/* hero */
+.hero{border-radius:var(--radl);box-shadow:var(--sh-3);min-height:320px}
+.hero>img{transform:scale(1.03)}
+.hero .waas{background:
+  linear-gradient(180deg,rgba(var(--waas-rgb),.10) 0%,rgba(var(--waas-rgb),.55) 48%,rgba(var(--waas-rgb),.94) 100%),
+  radial-gradient(600px 300px at 0% 100%,rgba(183,28,28,.28),transparent 70%)}
+.hero-kaart{border-radius:20px;background:rgba(255,255,255,.9);-webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);border:1px solid rgba(255,255,255,.7);padding:20px;gap:11px}
+.hero-kaart .bar{height:10px}
+.hero-kaart .dash-verder{min-height:52px;font-size:15.5px;background:linear-gradient(180deg,#C92A2A,var(--a));box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 8px 20px -6px rgba(183,28,28,.7)}
+.bar{height:8px;background:rgba(15,31,61,.08)}
+.bar>span{background:linear-gradient(90deg,#E04848,var(--a));transition:width .9s var(--zacht);position:relative}
+
+/* de route */
+.dash-route-kop{margin:34px 0 16px;display:flex;flex-direction:column;gap:4px}
+.dash-route-kop h2{font-size:clamp(20px,3vw,24px);color:var(--p)}
+.dash-route-kop p{color:var(--muted);font-size:14px}
+.dash-route{max-width:880px}
+.route{list-style:none;margin:0;padding:0;position:relative}
+.route::before{content:"";position:absolute;left:21px;top:22px;bottom:30px;width:4px;border-radius:4px;background:repeating-linear-gradient(180deg,var(--line-2) 0 10px,transparent 10px 18px)}
+.halte{position:relative;padding-left:62px;margin-bottom:12px}
+.halte.af::before{content:"";position:absolute;left:21px;top:-14px;height:calc(100% + 14px);width:4px;background:var(--ok);border-radius:4px}
+.knoop{position:absolute;left:5px;top:16px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:3px solid var(--line-2);color:var(--muted);z-index:1;box-shadow:var(--sh-1)}
+.knoop svg{width:17px;height:17px}
+.halte.af .knoop{background:var(--ok);border-color:var(--ok);color:#fff}
+.halte.nu .knoop{background:var(--a);border-color:#fff;box-shadow:0 0 0 4px var(--a),0 6px 16px -4px rgba(183,28,28,.7)}
+.halte.nu .knoop::after{content:"";width:12px;height:12px;border-radius:50%;background:#fff}
+.halte.nu .knoop::before{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid var(--a);animation:haltePuls 2.4s var(--zacht) infinite;opacity:0}
+@keyframes haltePuls{0%{transform:scale(.8);opacity:.7}100%{transform:scale(1.5);opacity:0}}
+.halte.open .knoop{border-color:var(--p)}
+.halte-in{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid rgba(220,227,236,.9);border-radius:18px;padding:16px 18px;box-shadow:var(--sh-1);transition:box-shadow .2s,transform .2s var(--zacht)}
+.halte.nu .halte-in{box-shadow:var(--sh-3);border-color:rgba(183,28,28,.25);padding:20px 22px}
+.halte.dicht .halte-in{background:rgba(255,255,255,.55);box-shadow:none;border-style:dashed}
+.halte.dicht h3{color:var(--muted)}
+.halte-tekst{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.halte h3{font-size:16px;color:var(--ink)}
+.halte.nu h3{font-size:18px}
+.halte-meta{font-size:13px;color:var(--muted);line-height:1.4}
+.halte-voortgang{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);font-weight:600}
+.halte-voortgang .bar{flex:1;max-width:260px}
+.halte-acties{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.halte.eind .knoop{border-radius:12px}
+@media (max-width:640px){
+  .halte{padding-left:52px}
+  .route::before,.halte.af::before{left:17px}
+  .knoop{left:1px;width:36px;height:36px}
+  .halte-in{flex-direction:column;align-items:stretch;gap:12px;padding:14px 16px}
+  .halte.nu .halte-in{padding:16px 18px}
+  .halte-acties{justify-content:stretch}
+  .halte-acties .btn{flex:1}
+}
+
+/* volgende stap onderin (telefoon) */
+.volgende-balk{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:140;transform:translateY(140%);transition:transform .35s var(--zacht);pointer-events:none}
+.volgende-balk.zichtbaar{transform:none;pointer-events:auto}
+.volgende-balk .btn{width:100%;min-height:54px;font-size:15.5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 14px 30px -8px rgba(183,28,28,.75)}
+@media (min-width:900px){.volgende-balk{display:none}}
+
+/* inloggen */
+.auth{border-radius:var(--radl)!important;box-shadow:var(--sh-3)!important;overflow:hidden}
+/* route: afgeronde haltes compact, laptop met zijkolom */
+.halte.af .halte-in{padding:12px 16px}
+.halte.af .knoop{top:12px}
+@media (max-width:640px){
+  .halte.af .halte-in{flex-direction:row;align-items:center}
+  .halte.af .halte-acties{flex-direction:column;gap:6px}
+  .halte.af .halte-acties .btn{flex:none;min-height:34px;padding:6px 14px;font-size:12px}
+  #view-dashboard{padding-bottom:110px}
+}
+@media (min-width:1000px){
+  #view-dashboard{display:grid;grid-template-columns:minmax(0,1fr) 300px;column-gap:36px;grid-template-areas:"kijk kijk" "hero hero" "plan plan" "kop voet" "route voet"}
+  #view-dashboard>.kijkbalk{grid-area:kijk}
+  #view-dashboard>.hero{grid-area:hero}
+  #view-dashboard>#dash-plan{grid-area:plan}
+  #view-dashboard>.dash-route-kop{grid-area:kop}
+  #view-dashboard>.dash-route{grid-area:route;max-width:none}
+  #view-dashboard>.voet{grid-area:voet;align-self:start;position:sticky;top:88px;margin-top:34px;background:var(--surface);border:1px solid rgba(220,227,236,.9);border-radius:18px;padding:22px;box-shadow:var(--sh-1)}
+}
+@media (min-width:1000px){#view-dashboard>.voet{border-top:1px solid rgba(220,227,236,.9)}}
+@media (max-width:640px){.halte.af [data-toets]{display:none}.halte.af .halte-acties{flex-direction:row}}
