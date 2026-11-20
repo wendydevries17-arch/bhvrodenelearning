@@ -446,13 +446,6 @@ Deno.serve(async (req: Request) => {
   }
 
   const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) {
-    return antwoord({
-      fout: "Je bent niet ingelogd",
-      uitleg: "Log opnieuw in en probeer het nog eens.",
-    });
-  }
-
   const url = Deno.env.get("SUPABASE_URL")!;
   // De oude anon-sleutel is uitgezet; gebruik de nieuwe publishable key.
   let anon = "";
@@ -462,11 +455,28 @@ Deno.serve(async (req: Request) => {
     if (typeof v === "string") anon = v;
   } catch { /* valt terug op de oude sleutel */ }
   if (!anon) anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const kop = {
-    "apikey": anon,
-    "Authorization": auth,
-    "Content-Type": "application/json",
-  };
+
+  /* Twee manieren van aanroepen:
+     - vanuit de leeromgeving, met het token van wie is ingelogd;
+     - door de database zelf (elke paar minuten, zonder token). Dan werkt
+       de functie als "systeem" met de dienstsleutel. Ook dan gaat er
+       alleen weg wat al in de wachtrij stond. */
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  const gebruiker = token.startsWith("eyJ") && token !== anon;
+  let kop: Record<string, string>;
+  if (gebruiker) {
+    kop = { "apikey": anon, "Authorization": auth, "Content-Type": "application/json" };
+  } else {
+    let dienst = "";
+    try {
+      const m = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+      const v = Object.values(m)[0];
+      if (typeof v === "string") dienst = v;
+    } catch { /* geen nieuwe sleutel */ }
+    if (!dienst) dienst = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    kop = { "apikey": dienst, "Content-Type": "application/json" };
+    if (dienst.startsWith("eyJ")) kop.Authorization = `Bearer ${dienst}`;
+  }
 
   async function rpc(naam: string, args: Record<string, unknown>) {
     const r = await fetch(`${url}/rest/v1/rpc/${naam}`, {

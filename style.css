@@ -850,3 +850,13 @@ input.kies,select.kies,textarea.kies,.veld input,.veld select,.veld textarea{bor
 .logo-cel{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px}
 .logo-cel img{height:26px;width:auto;max-width:90px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 4px}
 .hero-kaart .dash-verder{color:var(--a-ink)}.voet a{color:var(--p)}
+/* twee stappen voor beheerders */
+.mfa-scherm{position:fixed;inset:0;z-index:300;background:rgba(15,31,61,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:grid;place-items:center;padding:16px;overflow-y:auto}
+.mfa-kaart{background:var(--surface);border-radius:var(--radl);box-shadow:var(--sh-3);padding:28px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:14px}
+.mfa-kaart h2{font-size:22px;color:var(--p)}
+.mfa-stappen{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--ink-2)}
+.mfa-qr{display:grid;place-items:center;padding:12px;background:#fff;border:1px solid var(--line);border-radius:16px}
+.mfa-qr img{width:200px;height:200px}
+.mfa-kaart code{font-size:12px;word-break:break-all;background:var(--surface-2);padding:2px 6px;border-radius:6px}
+.mfa-scherm{display:flex;align-items:flex-start}
+.mfa-kaart{margin:auto}

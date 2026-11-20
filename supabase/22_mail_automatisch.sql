@@ -1,0 +1,12 @@
+-- =====================================================================
+--  22. Mails automatisch versturen (20 nov 2026)
+--  De functie "mail" draait nu ook zonder ingelogde gebruiker, als
+--  systeem (met de dienstsleutel). pg_cron roept hem elke 2 minuten aan
+--  als er iets in de wachtrij staat, en elke ochtend om 7:30 UTC voor de
+--  herinneringen aan wie stilligt. mail_klaar mag nu ook door het systeem.
+--  Al toegepast in de database.
+-- =====================================================================
+-- cron: bhv-mailronde          */2 * * * *  -> functions/v1/mail {"max":50}  (alleen als er wachtrij is)
+-- cron: bhv-mailherinneringen  30 7 * * *   -> functions/v1/mail {"max":100,"herinneren":true}
+-- mail_klaar: "if auth.uid() is null and not is_systeem() then raise" en "(is_systeem() or is_beheerder() or ...)"
+-- Kennistoets Hoofdstuk Westerkwartier: 5 toetsvragen over de locaties (in de database).

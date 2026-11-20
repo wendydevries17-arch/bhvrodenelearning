@@ -658,6 +658,73 @@
     document.body.dataset.klant = "ja";
   }
 
+  /* =====================================================================
+     TWEE STAPPEN VOOR BEHEERDERS
+     Na het wachtwoord nog een code uit een authenticator-app. De eerste
+     keer stel je die app in met een QR-code.
+     ===================================================================== */
+  function mfaStap() {
+    return sb.auth.mfa.getAuthenticatorAssuranceLevel().then(function (a) {
+      if (a.data && a.data.currentLevel === "aal2") return true;
+      return sb.auth.mfa.listFactors().then(function (f) {
+        var alle = (f.data && f.data.all) || [];
+        var actief = alle.filter(function (x) { return x.factor_type === "totp" && x.status === "verified"; })[0];
+        return new Promise(function (klaar) {
+          if (actief) { mfaScherm(actief.id, null, klaar); return; }
+          // Halve pogingen van eerder opruimen, dan opnieuw beginnen.
+          Promise.all(alle.filter(function (x) { return x.status !== "verified"; }).map(function (x) {
+            return sb.auth.mfa.unenroll({ factorId: x.id });
+          })).then(function () {
+            return sb.auth.mfa.enroll({ factorType: "totp", friendlyName: "BHV Roden beheer " + Date.now() });
+          }).then(function (e) {
+            if (e.error) throw e.error;
+            mfaScherm(e.data.id, e.data.totp, klaar);
+          }).catch(function (err) { storing("Beveiliging instellen lukte niet", esc(err && err.message ? err.message : String(err))); });
+        });
+      });
+    });
+  }
+
+  function qrBron(q) {
+    var m = /^data:image\/svg\+xml;(?:utf-8|charset=utf-8),([\s\S]*)$/i.exec(q || "");
+    return m && m[1].charAt(0) === "<" ? "data:image/svg+xml;charset=utf-8," + encodeURIComponent(m[1]) : q;
+  }
+  function mfaScherm(factorId, nieuw, klaar) {
+    var oud = $("#mfa-scherm"); if (oud) oud.remove();
+    var d = document.createElement("div");
+    d.id = "mfa-scherm"; d.className = "mfa-scherm";
+    d.innerHTML = '<div class="mfa-kaart"><h2>' + (nieuw ? "Extra beveiliging instellen" : "Bevestig dat jij het bent") + "</h2>" +
+      (nieuw
+        ? '<p class="lead">Beheerders loggen in met hun wachtwoord plus een code uit een app op hun telefoon. Zo kan niemand met alleen een wachtwoord bij de gegevens van cursisten.</p>' +
+          '<ol class="mfa-stappen"><li>Open een authenticator-app. Op de iPhone kan dat de app <b>Wachtwoorden</b>, of Google of Microsoft Authenticator.</li>' +
+          "<li>Scan deze QR-code met die app.</li><li>Vul hieronder de 6 cijfers in die de app laat zien.</li></ol>" +
+          '<div class="mfa-qr"><img src="' + esc(qrBron(nieuw.qr_code)) + '" alt="QR-code voor de authenticator-app"></div>' +
+          '<p class="hint">Lukt scannen niet? Vul deze sleutel in de app in: <code>' + esc(nieuw.secret) + "</code></p>"
+        : '<p class="lead">Vul de 6 cijfers in die je authenticator-app laat zien bij BHV Roden.</p>') +
+      '<div class="veld"><label for="mfa-code">Code uit de app</label><input id="mfa-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456"></div>' +
+      '<div class="fout" id="mfa-fout" hidden></div>' +
+      '<div class="btn-row"><button type="button" class="btn btn-a" id="mfa-knop">Bevestigen</button>' +
+      '<button type="button" class="btn btn-g" id="mfa-uit">Uitloggen</button></div></div>';
+    document.body.appendChild(d);
+    setTimeout(function () { $("#mfa-code").focus({ preventScroll: true }); }, 50);
+    var bevestig = function () {
+      var code = $("#mfa-code").value.replace(/\D/g, ""), fout = $("#mfa-fout"), knop = $("#mfa-knop");
+      fout.hidden = true;
+      if (code.length !== 6) { fout.hidden = false; fout.innerHTML = "<b>Vul 6 cijfers in</b>De code staat in je authenticator-app."; return; }
+      knop.disabled = true; knop.textContent = "Bezig";
+      sb.auth.mfa.challengeAndVerify({ factorId: factorId, code: code }).then(function (r) {
+        knop.disabled = false; knop.textContent = "Bevestigen";
+        if (r.error) { fout.hidden = false; fout.innerHTML = "<b>Deze code klopt niet</b>Een code is 30 seconden geldig. Vul de code in die de app nu laat zien."; return; }
+        d.remove();
+        if (nieuw) toast("Extra beveiliging staat aan");
+        klaar(true);
+      });
+    };
+    $("#mfa-knop").addEventListener("click", bevestig);
+    $("#mfa-code").addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); bevestig(); } });
+    $("#mfa-uit").addEventListener("click", function () { sb.auth.signOut().then(function () { location.reload(); }); });
+  }
+
   function storing(titel, tekst) {
     // Niet de hele view overschrijven: dan zijn de vaste onderdelen weg
     // en loopt een volgende naarDashboard() stuk.
@@ -687,6 +754,10 @@
           if (r.error) throw r.error;
           if (!r.data) throw new Error("geen-profiel");
           S.profiel = r.data;
+          // Beheerders loggen in met wachtwoord plus een code uit een app.
+          if (S.profiel.rol === "beheerder" && !S.mfaKlaar) {
+            return mfaStap().then(function () { S.mfaKlaar = true; laadAlles(); });
+          }
           meldApp({ type: "ingelogd" });
           laadPlan();
 
