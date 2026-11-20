@@ -835,3 +835,18 @@ input.kies,select.kies,textarea.kies,.veld input,.veld select,.veld textarea{bor
 @media (max-width:600px){.balk>img{height:32px}}
 .auth-form .logo{height:56px}
 .balk>img.eigen-logo{background:#fff!important;padding:3px 5px!important;border-radius:8px!important}
+/* knoppen: echte huisstijlkleuren, geen verloop */
+.btn-a,.btn-a:hover:not(:disabled),.hero-kaart .dash-verder,.volgende-balk .btn{background:var(--a)}
+.btn-a:hover:not(:disabled){filter:brightness(.94)}
+.btn-p,.btn-p:hover:not(:disabled){background:var(--p)}
+.btn-p:hover:not(:disabled){filter:brightness(1.12)}
+.btn-a,.hero-kaart .dash-verder,.volgende-balk .btn{box-shadow:0 6px 16px -8px rgba(15,31,61,.45)}
+.btn-a:hover:not(:disabled){box-shadow:0 10px 20px -8px rgba(15,31,61,.5)}
+.btn-p{box-shadow:0 6px 16px -8px rgba(15,31,61,.5)}
+.bar>span{background:var(--a)}
+.halte.nu .knoop{box-shadow:0 0 0 4px var(--a),0 6px 16px -6px rgba(15,31,61,.45)}
+.halte.nu .halte-in{border-color:var(--line)}
+.hero .waas{background:linear-gradient(180deg,rgba(var(--waas-rgb),.10) 0%,rgba(var(--waas-rgb),.55) 48%,rgba(var(--waas-rgb),.94) 100%)}
+.logo-cel{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px}
+.logo-cel img{height:26px;width:auto;max-width:90px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 4px}
+.hero-kaart .dash-verder{color:var(--a-ink)}.voet a{color:var(--p)}

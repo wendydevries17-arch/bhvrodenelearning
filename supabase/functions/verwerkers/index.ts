@@ -1,3 +1,14 @@
+
+/* Platte-tekstversie van een html-mail. Mailprogramma's als Outlook
+   vertrouwen een mail met ook een tekstversie meer. */
+function naarTekst(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<title[\s\S]*?<\/title>/gi, "")
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, u, t) => `${t.replace(/<[^>]+>/g, "").trim()} (${u})`)
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
 // =====================================================================
 //  BHV Roden leeromgeving: de verwerkersovereenkomst
 //
@@ -112,7 +123,7 @@ function omhulsel(titel: string, binnen: string): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F4F2;padding:24px 12px;"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFFFFF;border:1px solid #DCDCD8;border-radius:5px;overflow:hidden;">
 <tr><td style="background:#0F1F3D;padding:22px 26px;"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
-<td style="padding-right:12px;"><img src="${SITE}/img/logo-bhvroden.jpg" alt="BHV Roden" width="46" style="display:block;border-radius:3px;background:#fff;padding:3px 5px;"></td>
+<td style="padding-right:12px;"><img src="${SITE}/img/logo-bhv-kop.png" alt="BHV Roden" width="82" style="display:block;border:0;"></td>
 <td style="font-family:Helvetica,Arial,sans-serif;color:#FFFFFF;"><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.6;font-weight:bold;">Leeromgeving</div>
 <div style="font-size:17px;font-weight:bold;line-height:1.2;">BHV Roden</div></td></tr></table></td></tr>
 <tr><td style="padding:26px 28px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#3E3E3E;">${binnen}</td></tr>
@@ -137,7 +148,7 @@ async function stuur(aan: string, onderwerp: string, html: string, bcc?: string)
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${sleutel}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: VAN, to: [aan], reply_to: ANTWOORD, subject: onderwerp, html, ...(bcc ? { bcc: [bcc] } : {}) }),
+    body: JSON.stringify({ from: VAN, to: [aan], reply_to: ANTWOORD, subject: onderwerp, html, text: naarTekst(html), ...(bcc ? { bcc: [bcc] } : {}) }),
   });
   const u = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(u?.message ?? `Resend gaf ${r.status}`);

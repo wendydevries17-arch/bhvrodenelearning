@@ -1,3 +1,14 @@
+
+/* Platte-tekstversie van een html-mail. Mailprogramma's als Outlook
+   vertrouwen een mail met ook een tekstversie meer. */
+function naarTekst(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<title[\s\S]*?<\/title>/gi, "")
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, u, t) => `${t.replace(/<[^>]+>/g, "").trim()} (${u})`)
+    .replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|tr|h[1-6]|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/[ \t]+/g, " ").replace(/\n[ \t]+/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
 // =====================================================================
 //  BHV Roden leeromgeving: inlogmails (code per mail, wachtwoord herstellen)
 //
@@ -42,8 +53,7 @@ function omhulsel(site: string, titel: string, binnenkant: string): string {
   <tr><td style="background:#0F1F3D;padding:22px 26px;">
     <table role="presentation" cellpadding="0" cellspacing="0"><tr>
       <td style="padding-right:12px;">
-        <img src="${site}/img/logo-bhvroden.jpg" alt="BHV Roden" width="46"
-             style="display:block;border-radius:3px;background:#fff;padding:3px 5px;">
+        <img src="${site}/img/logo-bhv-kop.png" alt="BHV Roden" width="82" style="display:block;border:0;">
       </td>
       <td style="font-family:Helvetica,Arial,sans-serif;color:#FFFFFF;">
         <div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.6;font-weight:bold;">Leeromgeving</div>
@@ -100,7 +110,7 @@ Deno.serve(async (req) => {
   const s = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${Deno.env.get("RESEND_API_KEY")}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: VAN, to: [rij.email], subject: onderwerp, html: omhulsel(SITE, onderwerp, binnen) }),
+    body: JSON.stringify({ from: VAN, to: [rij.email], subject: onderwerp, html: omhulsel(SITE, onderwerp, binnen), text: naarTekst(omhulsel(SITE, onderwerp, binnen)) }),
   });
   if (!s.ok) { console.error("resend", s.status, (await s.text()).slice(0, 300)); return antwoord({ ok: false }, 502); }
   return antwoord({ ok: true });

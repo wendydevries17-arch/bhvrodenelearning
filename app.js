@@ -2455,6 +2455,28 @@
     });
   }
 
+  /* Logo van een klantbedrijf uploaden. Het komt in de opslag (map logos)
+     en verschijnt daarna bovenin de leeromgeving van dat bedrijf. */
+  function zetLogo(orgId, bestand) {
+    var klaar = function (url) {
+      return sb.from("organisaties").update({ logo_url: url }).eq("id", orgId).then(function (r) {
+        if (r.error) throw r.error;
+        B.organisaties = null; S.herladen = true;
+        toast(url ? "Logo staat erin" : "Logo is weggehaald");
+        naarBeheer("bedrijven");
+      });
+    };
+    if (!bestand) { klaar(null).catch(function (e) { melding("Dat lukte niet", "Probeer het zo nog een keer.", "mis", e); }); return; }
+    if (bestand.size > 2 * 1024 * 1024) { melding("Dit logo is te groot", "Kies een bestand kleiner dan 2 MB. Een png met transparante achtergrond werkt het mooist.", "mis"); return; }
+    var ext = (bestand.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z]/g, "") || "png";
+    var pad = orgId + "-" + Date.now() + "." + ext;
+    toast("Logo wordt geüpload");
+    sb.storage.from("logos").upload(pad, bestand, { contentType: bestand.type, upsert: true }).then(function (r) {
+      if (r.error) throw r.error;
+      return klaar(sb.storage.from("logos").getPublicUrl(pad).data.publicUrl);
+    }).catch(function (e) { melding("Uploaden lukte niet", "Probeer het zo nog een keer.", "mis", e); });
+  }
+
   function tekenBedrijven() {
     if (!B.vwo) return laadVwo().then(tekenBedrijven);
     var uit = '<div class="kop"><h1>Klant<em>bedrijven</em></h1>' +
@@ -2472,7 +2494,7 @@
       '<div class="veld"><label for="b-a">Accentkleur</label><div class="kleurveld">' +
       '<input type="color" id="b-a" value="#B71C1C"><input class="kies" type="text" id="b-at" value="#B71C1C"></div></div>' +
       "</div>" +
-      '<div class="veld"><label for="b-logo">Adres van het logo (mag leeg)</label><input class="kies" id="b-logo" type="url" placeholder="https://..."></div>' +
+      '<div class="veld"><label for="b-logo">Adres van het logo (mag leeg)</label><input class="kies" id="b-logo" type="url" placeholder="https://..."><span class="hint">Of upload het logo straks in de lijst hieronder, bij Huisstijl.</span></div>' +
       '<div class="veld"><label><input type="checkbox" id="b-rond" checked style="width:auto;margin-right:8px">Ronde knoppen</label>' +
       '<span class="hint">Uit betekent rechte hoeken, zoals bij Westerkwartier.</span></div>' +
       '<div class="fout" id="b-fout" hidden></div>' +
@@ -2495,7 +2517,12 @@
                  '<div><button type="button" class="tekstknop" data-dpa="' + esc(o.id) + '" style="font-size:12px">wijzigen</button></div>'
                : vwoStatus(o))) + "</td>" +
           '<td><span style="display:inline-block;width:18px;height:18px;border-radius:3px;background:' + esc(o.kleur_primair) + ';vertical-align:middle"></span>' +
-          '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span></td>' +
+          '<span style="display:inline-block;width:18px;height:18px;border-radius:3px;margin-left:5px;background:' + esc(o.kleur_accent) + ';vertical-align:middle"></span>' +
+          '<div class="logo-cel">' + (o.logo_url ? '<img src="' + esc(o.logo_url) + '" alt="">' : "") +
+          '<label class="tekstknop">' + (o.logo_url ? "ander logo" : "logo toevoegen") +
+          '<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-logo-org="' + esc(o.id) + '" hidden></label>' +
+          (o.logo_url ? ' <button type="button" class="tekstknop" data-logo-weg="' + esc(o.id) + '">weghalen</button>' : "") +
+          "</div></td>" +
           "<td>" + (o.contactpersoon_email
             ? '<button type="button" class="btn btn-g btn-sm" data-cert-org="' + esc(o.id) + '">Naar contactpersoon</button>'
             : '<span class="hint">geen e-mailadres</span>') + "</td></tr>";
@@ -2514,6 +2541,12 @@
     });
     $("#beheer-paneel").querySelectorAll("[data-dpa]").forEach(function (b) {
       b.addEventListener("click", function () { tekenDpa(b.dataset.dpa); });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-logo-org]").forEach(function (inp) {
+      inp.addEventListener("change", function () { if (inp.files && inp.files[0]) zetLogo(inp.dataset.logoOrg, inp.files[0]); });
+    });
+    $("#beheer-paneel").querySelectorAll("[data-logo-weg]").forEach(function (b) {
+      b.addEventListener("click", function () { zetLogo(b.dataset.logoWeg, null); });
     });
     $("#beheer-paneel").querySelectorAll("[data-vwo]").forEach(function (b) {
       b.addEventListener("click", function () { stuurVerwerkers(b.dataset.vwo, b); });
