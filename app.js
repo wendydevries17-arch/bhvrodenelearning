@@ -561,8 +561,35 @@
         return;
       }
       history.replaceState(null, "", location.pathname);
-      naarApp();
+      appKeuze(naarApp);
     });
+  }
+
+  /* Na het aanmaken van een account: op de iPhone eerst de app aanbieden,
+     op Android gewoon door in de browser. Op een computer kan het allebei. */
+  var APP_STORE = "https://apps.apple.com/nl/app/id6827281375";
+  function appKeuze(verder) {
+    var ua = navigator.userAgent || "";
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var android = /Android/.test(ua);
+    var los = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+    if (inApp() || los || android) { verder(); return; }
+    var oud = $("#app-keuze-scherm"); if (oud) oud.remove();
+    var d = document.createElement("div");
+    d.id = "app-keuze-scherm"; d.className = "mfa-scherm";
+    d.innerHTML = '<div class="mfa-kaart"><h2>Je account is klaar</h2>' +
+      (ios
+        ? '<p class="lead">De cursus volg je het makkelijkst in de app van BHV Roden. Download hem in de App Store en log daar in met je e-mailadres. Je krijgt dan een code in je mail.</p>' +
+          '<div class="btn-row"><a class="btn btn-a" id="ak-app" href="' + APP_STORE + '" target="_blank" rel="noopener">Download de app</a>' +
+          '<button type="button" class="btn btn-g" id="ak-web">Liever in de browser</button></div>'
+        : '<p class="lead">Je kunt hier in de browser beginnen. Heb je een iPhone? Dan kun je de cursus ook in de app volgen. Download BHV Roden in de App Store en log in met je e-mailadres. Je voortgang neem je mee.</p>' +
+          '<div class="btn-row"><button type="button" class="btn btn-a" id="ak-web">Start in de browser</button>' +
+          '<a class="btn btn-g" id="ak-app" href="' + APP_STORE + '" target="_blank" rel="noopener">App voor iPhone</a></div>') +
+      "</div>";
+    document.body.appendChild(d);
+    $("#ak-web").addEventListener("click", function () { d.remove(); verder(); });
+    // Wie de app downloadt, ziet in de browser alvast het dashboard staan.
+    $("#ak-app").addEventListener("click", function () { setTimeout(function () { d.remove(); verder(); }, 400); });
   }
 
   /* =====================================================================
