@@ -1173,7 +1173,7 @@
     /* De cursus als route: elk hoofdstuk een halte op één lijn, van
        begin tot examen. Afgerond is groen, waar je nu bent is rood, de
        rest staat op slot. Per halte alleen de knop die je nu nodig hebt. */
-    var uit = '<ol class="route">', nuGezet = false;
+    var uit = '<ol class="route">', nuGezet = false, vStap = volgendeStap();
     S.modules.forEach(function (m) {
       var lAf = m.lessen.filter(function (l) { return lesAf(l.id); }).length;
       var klaar = moduleAf(m);
@@ -1189,6 +1189,8 @@
       var knoppen = "";
       if (!eerste) {
         meta = "Aan dit hoofdstuk wordt nog gewerkt";
+      } else if (stand === "nu" && vStap && ((vStap.soort === "les" && m.lessen.some(function (l) { return l.id === vStap.id; })) || (vStap.soort === "toets" && vStap.id === m.id))) {
+        // Deze stap staat al als grote knop bovenaan: niet dubbel tonen.
       } else if (stand === "nu" || stand === "open") {
         if (tOpen && !tOk) knoppen += '<button type="button" class="btn btn-a" data-toets="' + m.id + '">Kennistoets maken</button>';
         else knoppen += '<button type="button" class="btn ' + (stand === "nu" ? "btn-a" : "btn-g") + '" data-les="' + eerste.id + '">' + (lAf === 0 ? "Beginnen" : "Verder gaan") + "</button>";
